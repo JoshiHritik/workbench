@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
@@ -31,15 +31,60 @@ function CityThumbnail({ city, className }: { city: City; className: string }) {
 
 function CityCard({ city }: { city: City }) {
   return (
-    <div className="w-36 flex-shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <CityThumbnail city={city} className="h-24 w-full" />
-      <div className="p-3 text-center">
-        <p className="font-medium text-slate-900">{city.name}</p>
-        <p className="mt-0.5 text-xs text-slate-500">
+    <div className="relative h-64 w-52 flex-shrink-0 overflow-hidden rounded-2xl shadow-md">
+      <CityThumbnail city={city} className="absolute inset-0 h-full w-full" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 p-4">
+        <p className="text-xl font-bold leading-tight text-white">{city.name}</p>
+        <p className="mt-1 text-xs text-white/80">
           {city.state ? `${city.state}, ` : ''}
           {city.country}
         </p>
       </div>
+    </div>
+  )
+}
+
+const CHEVRON_LEFT = 'M15 19l-7-7 7-7'
+const CHEVRON_RIGHT = 'M9 5l7 7-7 7'
+
+function ScrollArrow({ direction, onClick }: { direction: 'left' | 'right'; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Scroll ${direction}`}
+      className={`absolute top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md transition hover:bg-slate-50 ${
+        direction === 'left' ? '-left-4' : '-right-4'
+      }`}
+    >
+      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d={direction === 'left' ? CHEVRON_LEFT : CHEVRON_RIGHT}
+        />
+      </svg>
+    </button>
+  )
+}
+
+function CityCardRow({ cities }: { cities: City[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  function scroll(direction: 'left' | 'right') {
+    scrollRef.current?.scrollBy({ left: direction === 'left' ? -450 : 450, behavior: 'smooth' })
+  }
+
+  return (
+    <div className="relative">
+      <ScrollArrow direction="left" onClick={() => scroll('left')} />
+      <div ref={scrollRef} className="scrollbar-none flex gap-5 overflow-x-auto scroll-smooth px-1 pb-2">
+        {cities.map((city) => (
+          <CityCard key={city.id} city={city} />
+        ))}
+      </div>
+      <ScrollArrow direction="right" onClick={() => scroll('right')} />
     </div>
   )
 }
@@ -69,8 +114,20 @@ export default function Dashboard() {
           .select('*')
           .eq('user_id', session!.user.id)
           .order('created_at', { ascending: false }),
-        supabase.from('cities').select('*').eq('country', 'India').order('popularity', { ascending: false }).limit(8),
-        supabase.from('cities').select('*').neq('country', 'India').order('popularity', { ascending: false }).limit(8),
+        supabase
+          .from('cities')
+          .select('*')
+          .eq('country', 'India')
+          .not('image_url', 'is', null)
+          .order('popularity', { ascending: false })
+          .limit(8),
+        supabase
+          .from('cities')
+          .select('*')
+          .neq('country', 'India')
+          .not('image_url', 'is', null)
+          .order('popularity', { ascending: false })
+          .limit(8),
       ])
 
       if (tripsRes.data) setTrips(tripsRes.data)
@@ -110,7 +167,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-svh bg-slate-50">
-      <div className="relative isolate flex min-h-svh flex-col overflow-hidden">
+      <div className="relative isolate flex h-[70svh] flex-col overflow-hidden">
         <div className="absolute inset-0 -z-10">
           <img src={HERO_IMAGE_URL} alt="" className="h-full w-full object-cover" />
           <div className="absolute inset-0 bg-white/55" />
@@ -214,10 +271,8 @@ export default function Dashboard() {
           ) : indiaCities.length === 0 ? (
             <p className="mt-3 text-sm text-slate-500">No cities yet.</p>
           ) : (
-            <div className="mt-3 flex gap-4 overflow-x-auto pb-2">
-              {indiaCities.map((city) => (
-                <CityCard key={city.id} city={city} />
-              ))}
+            <div className="mt-3">
+              <CityCardRow cities={indiaCities} />
             </div>
           )}
         </section>
@@ -229,10 +284,8 @@ export default function Dashboard() {
           ) : internationalCities.length === 0 ? (
             <p className="mt-3 text-sm text-slate-500">No cities yet.</p>
           ) : (
-            <div className="mt-3 flex gap-4 overflow-x-auto pb-2">
-              {internationalCities.map((city) => (
-                <CityCard key={city.id} city={city} />
-              ))}
+            <div className="mt-3">
+              <CityCardRow cities={internationalCities} />
             </div>
           )}
         </section>
