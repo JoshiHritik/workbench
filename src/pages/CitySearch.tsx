@@ -2,44 +2,30 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { AppHeader } from '../components/AppHeader'
 import { MiniMap } from '../components/MiniMap'
-import { fetchWikiInfo, fetchNearbyPlaces, type WikiInfo } from '../lib/wiki'
+import { fetchWikiInfo, fetchNearbyPlaces, fetchWikiSummaryByTitle, looksLikeAttraction, type WikiInfo } from '../lib/wiki'
 import { geocode, type GeocodeResult } from '../lib/geocode'
+import { useAuth } from '../context/AuthContext'
+import { isCitySaved, saveCity, removeSavedCity } from '../lib/savedCities'
 
 const DEFAULT_HERO_IMAGE =
   'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1600&q=70'
 
-function NearbyCard({ title }: { title: string }) {
-  const [info, setInfo] = useState<WikiInfo | null | undefined>(undefined)
+const MAX_NEARBY = 9
 
-  useEffect(() => {
-    let cancelled = false
-    fetchWikiInfo(title).then((res) => {
-      if (!cancelled) setInfo(res)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [title])
-
-  const image = info?.image
-
+function NearbyCard({ info }: { info: WikiInfo }) {
   return (
     <a
-      href={info?.url ?? `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`}
+      href={info.url ?? `https://en.wikipedia.org/wiki/${encodeURIComponent(info.title.replace(/ /g, '_'))}`}
       target="_blank"
       rel="noreferrer"
       className="block overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:shadow-sm"
     >
-      <div className="h-32 w-full bg-slate-100">
-        {image ? (
-          <img src={image} alt={title} className="h-full w-full object-cover" />
-        ) : info === undefined ? (
-          <div className="h-full w-full animate-pulse bg-slate-100" />
-        ) : null}
+      <div className="h-36 w-full bg-slate-100">
+        <img src={info.image ?? ''} alt={info.title} className="h-full w-full object-cover" />
       </div>
       <div className="p-3">
-        <p className="truncate text-sm font-semibold text-slate-900">{title}</p>
-        {info?.extract && <p className="mt-1 line-clamp-2 text-xs text-slate-500">{info.extract}</p>}
+        <p className="truncate text-sm font-semibold text-slate-900">{info.title}</p>
+        {info.extract && <p className="mt-1 line-clamp-2 text-xs text-slate-500">{info.extract}</p>}
       </div>
     </a>
   )
@@ -50,27 +36,66 @@ export default function CitySearch() {
   const name = params.get('name') ?? ''
   const start = params.get('start')
   const end = params.get('end')
+  const persons = params.get('persons')
+  const { session } = useAuth()
 
   const [geo, setGeo] = useState<GeocodeResult | null | undefined>(undefined)
   const [cityInfo, setCityInfo] = useState<WikiInfo | null | undefined>(undefined)
-  const [nearby, setNearby] = useState<string[] | null>(null)
+  const [nearby, setNearby] = useState<WikiInfo[] | null>(null)
+  const [savedId, setSavedId] = useState<string | null>(null)
+  const [savingCity, setSavingCity] = useState(false)
+
+  const country = geo?.displayName?.split(',').pop()?.trim() ?? null
+
+  useEffect(() => {
+    if (!session || !name.trim()) return
+    isCitySaved(session.user.id, name.trim(), country).then(setSavedId)
+  }, [session, name, country])
+
+  async function handleToggleSave() {
+    if (!session) return
+    setSavingCity(true)
+    if (savedId) {
+      await removeSavedCity(savedId)
+      setSavedId(null)
+    } else {
+      const { error } = await saveCity(session.user.id, {
+        name: name.trim(),
+        state: null,
+        country,
+        imageUrl: cityInfo?.image ?? null,
+      })
+      if (!error) {
+        const id = await isCitySaved(session.user.id, name.trim(), country)
+        setSavedId(id)
+      }
+    }
+    setSavingCity(false)
+  }
 
   useEffect(() => {
     if (!name.trim()) return
     let cancelled = false
+    setNearby(null)
 
-    geocode(name).then((res) => {
+    geocode(name).then(async (res) => {
       if (cancelled) return
       setGeo(res)
-      if (res) {
-        fetchNearbyPlaces(res.lat, res.lon).then((places) => {
-          if (!cancelled) {
-            setNearby(places.map((p) => p.title).filter((t) => t.toLowerCase() !== name.trim().toLowerCase()))
-          }
-        })
-      } else {
+      if (!res) {
         setNearby([])
+        return
       }
+
+      const places = await fetchNearbyPlaces(res.lat, res.lon)
+      const candidates = places
+        .map((p) => p.title)
+        .filter((t) => t.toLowerCase() !== name.trim().toLowerCase())
+
+      const infos = await Promise.all(candidates.map((title) => fetchWikiSummaryByTitle(title)))
+      if (cancelled) return
+
+      const filtered = infos.filter((info): info is WikiInfo => Boolean(info) && looksLikeAttraction(info!))
+      setNearby(filtered.slice(0, MAX_NEARBY))
     })
 
     fetchWikiInfo(name).then((res) => {
@@ -87,6 +112,7 @@ export default function CitySearch() {
     if (name.trim()) p.set('destination', name.trim())
     if (start) p.set('start', start)
     if (end) p.set('end', end)
+    if (persons) p.set('persons', persons)
     const query = p.toString()
     return query ? `/create-trip?${query}` : '/create-trip'
   }
@@ -111,7 +137,7 @@ export default function CitySearch() {
   return (
     <div className="min-h-svh bg-slate-50">
       <AppHeader />
-      <main className="mx-auto max-w-5xl px-4 pb-16 sm:px-6">
+      <main className="mx-auto max-w-7xl px-4 pb-16 sm:px-6">
         <div className="overflow-hidden rounded-2xl">
           <div className="relative h-64 w-full sm:h-80">
             <img src={heroImage} alt={name} className="h-full w-full object-cover" />
@@ -123,12 +149,35 @@ export default function CitySearch() {
                   <p className="mt-1 max-w-xl truncate text-sm text-white/80">{geo.displayName}</p>
                 )}
               </div>
-              <Link
-                to={tripUrl()}
-                className="flex-shrink-0 rounded-[50px] bg-white px-6 py-3 text-sm font-medium text-slate-900 transition hover:bg-slate-100"
-              >
-                Plan the Trip
-              </Link>
+              <div className="flex flex-shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleToggleSave}
+                  disabled={savingCity}
+                  aria-label={savedId ? 'Remove from saved destinations' : 'Save destination'}
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-slate-700 transition hover:bg-white disabled:opacity-60"
+                >
+                  <svg
+                    className="h-5 w-5"
+                    viewBox="0 0 24 24"
+                    fill={savedId ? 'currentColor' : 'none'}
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 21s-7-6.1-7-11.5A7 7 0 0112 3a7 7 0 017 6.5C19 14.9 12 21 12 21z"
+                    />
+                  </svg>
+                </button>
+                <Link
+                  to={tripUrl()}
+                  className="rounded-[50px] bg-white px-6 py-3 text-sm font-medium text-slate-900 transition hover:bg-slate-100"
+                >
+                  Plan the Trip
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -137,13 +186,13 @@ export default function CitySearch() {
           <p className="mt-5 max-w-3xl text-sm leading-relaxed text-slate-600">{cityInfo.extract}</p>
         )}
 
-        <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
+        <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-5">
+          <div className="lg:col-span-3">
             <h2 className="text-lg font-semibold text-slate-900">Things to do</h2>
             {nearby === null ? (
               <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="h-44 animate-pulse rounded-xl bg-slate-100" />
+                  <div key={i} className="h-48 animate-pulse rounded-xl bg-slate-100" />
                 ))}
               </div>
             ) : nearby.length === 0 ? (
@@ -153,20 +202,20 @@ export default function CitySearch() {
               </p>
             ) : (
               <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
-                {nearby.map((title) => (
-                  <NearbyCard key={title} title={title} />
+                {nearby.map((info) => (
+                  <NearbyCard key={info.title} info={info} />
                 ))}
               </div>
             )}
           </div>
 
-          <div>
+          <div className="lg:col-span-2">
             <h2 className="text-lg font-semibold text-slate-900">Location</h2>
             <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
               {geo === undefined ? (
-                <div className="h-56 animate-pulse bg-slate-100" />
+                <div className="h-96 animate-pulse bg-slate-100" />
               ) : (
-                <MiniMap pins={geo ? [{ lat: geo.lat, lon: geo.lon, label: name }] : []} className="h-56 w-full" />
+                <MiniMap pins={geo ? [{ lat: geo.lat, lon: geo.lon, label: name }] : []} className="h-96 w-full" />
               )}
             </div>
           </div>

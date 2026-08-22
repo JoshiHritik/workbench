@@ -23,8 +23,11 @@ const STORAGE_KEY = 'globetrotter_currency'
 
 interface CurrencyContextValue {
   currency: string
+  symbol: string
   setCurrency: (code: string) => void
   format: (amountInInr: number) => string
+  /** Converts an amount typed in the currently-selected currency back to INR, for storage. */
+  toInr: (amountInSelectedCurrency: number) => number
   ratesLoading: boolean
 }
 
@@ -83,8 +86,16 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     })}`
   }
 
+  function toInr(amountInSelectedCurrency: number): number {
+    const rate = rates[currency]
+    if (currency === 'INR' || !rate) return amountInSelectedCurrency
+    return amountInSelectedCurrency / rate
+  }
+
+  const symbol = (CURRENCY_OPTIONS.find((c) => c.code === currency) ?? CURRENCY_OPTIONS[0]).symbol
+
   return (
-    <CurrencyContext.Provider value={{ currency, setCurrency, format, ratesLoading }}>
+    <CurrencyContext.Provider value={{ currency, symbol, setCurrency, format, toInr, ratesLoading }}>
       {children}
     </CurrencyContext.Provider>
   )

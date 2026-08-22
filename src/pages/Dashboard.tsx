@@ -6,17 +6,23 @@ import { AppHeader } from '../components/AppHeader'
 import { DateRangePicker } from '../components/DateRangePicker'
 import { TripTypeSelect } from '../components/TripTypeSelect'
 import { DropdownPortal } from '../components/DropdownPortal'
+import { ConfirmDialog } from '../components/ConfirmDialog'
+import { ShareModal } from '../components/ShareModal'
 import { searchCities } from '../lib/citySearch'
+import { loadCachedItinerary } from '../lib/itineraryCache'
+import { useCurrency } from '../context/CurrencyContext'
+import { formatDateRange } from '../lib/dateFormat'
 import type { City, Trip } from '../lib/types'
 
-const HERO_IMAGE_URL =
-  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=2000&q=80'
-
-function formatDateRange(start: string | null, end: string | null) {
-  if (!start || !end) return 'Dates not set'
-  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
-  return `${new Date(start).toLocaleDateString(undefined, opts)} – ${new Date(end).toLocaleDateString(undefined, opts)}`
-}
+const HERO_IMAGES = [
+  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=2000&q=80',
+  'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=2000&q=80',
+  'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=2000&q=80',
+  'https://images.unsplash.com/photo-1500835556837-99ac94a94552?auto=format&fit=crop&w=2000&q=80',
+  'https://images.unsplash.com/photo-1476900164809-ff19b8ae5968?auto=format&fit=crop&w=2000&q=80',
+  'https://images.unsplash.com/photo-1493246507139-91e8fad9978e?auto=format&fit=crop&w=2000&q=80',
+  'https://images.unsplash.com/photo-1533104816931-20fa691ff6ca?auto=format&fit=crop&w=2000&q=80',
+]
 
 function CityThumbnail({ city, className }: { city: City; className: string }) {
   if (city.image_url) {
@@ -251,9 +257,14 @@ export default function Dashboard() {
   const { session } = useAuth()
   const navigate = useNavigate()
   const [trips, setTrips] = useState<Trip[]>([])
+  const { format: formatCurrency } = useCurrency()
   const [stopCounts, setStopCounts] = useState<Record<string, number>>({})
   const [featuredCities, setFeaturedCities] = useState<City[]>([])
   const [loading, setLoading] = useState(true)
+  const [tripPendingDelete, setTripPendingDelete] = useState<Trip | null>(null)
+  const [shareLink, setShareLink] = useState<{ slug: string; url: string } | null>(null)
+  const [shareError, setShareError] = useState<string | null>(null)
+  const [heroImage] = useState(() => HERO_IMAGES[Math.floor(Math.random() * HERO_IMAGES.length)])
 
   const searchAnchorRef = useRef<HTMLDivElement>(null)
   const [search, setSearch] = useState('')
@@ -263,6 +274,13 @@ export default function Dashboard() {
   const [toDate, setToDate] = useState('')
   const [persons, setPersons] = useState('')
   const [tripType, setTripType] = useState('')
+  const [searchError, setSearchError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!shareError) return
+    const timeout = setTimeout(() => setShareError(null), 4000)
+    return () => clearTimeout(timeout)
+  }, [shareError])
 
   useEffect(() => {
     if (!session) return
@@ -331,10 +349,15 @@ export default function Dashboard() {
     if (!error && data) setTrips((prev) => [data, ...prev])
   }
 
-  async function handleDeleteTrip(trip: Trip) {
-    if (!window.confirm(`Delete "${trip.name}"? This can't be undone.`)) return
-    const { error } = await supabase.from('trips').delete().eq('id', trip.id)
-    if (!error) setTrips((prev) => prev.filter((t) => t.id !== trip.id))
+  function handleDeleteTrip(trip: Trip) {
+    setTripPendingDelete(trip)
+  }
+
+  async function confirmDeleteTrip() {
+    if (!tripPendingDelete) return
+    const { error } = await supabase.from('trips').delete().eq('id', tripPendingDelete.id)
+    if (!error) setTrips((prev) => prev.filter((t) => t.id !== tripPendingDelete.id))
+    setTripPendingDelete(null)
   }
 
   async function handleShareTrip(trip: Trip) {
@@ -343,13 +366,12 @@ export default function Dashboard() {
     if (!slug) {
       const { data, error } = await supabase.from('shared_links').insert({ trip_id: trip.id }).select().single()
       if (error || !data) {
-        alert('Could not create a share link.')
+        setShareError('Could not create a share link.')
         return
       }
       slug = data.public_slug
     }
-    await navigator.clipboard.writeText(`${window.location.origin}/shared/${slug}`)
-    alert('Share link copied to clipboard.')
+    setShareLink({ slug, url: `${window.location.origin}/shared/${slug}` })
   }
 
   function buildCreateTripUrl() {
@@ -357,6 +379,7 @@ export default function Dashboard() {
     if (search.trim()) params.set('destination', search.trim())
     if (fromDate) params.set('start', fromDate)
     if (toDate) params.set('end', toDate)
+    if (persons.trim()) params.set('persons', persons.trim())
     const query = params.toString()
     return query ? `/create-trip?${query}` : '/create-trip'
   }
@@ -371,7 +394,25 @@ export default function Dashboard() {
     params.set('name', search.trim())
     if (fromDate) params.set('start', fromDate)
     if (toDate) params.set('end', toDate)
+    if (persons.trim()) params.set('persons', persons.trim())
     return `/cities?${params.toString()}`
+  }
+
+  function handleSearchClick() {
+    if (!fromDate || !toDate) {
+      setSearchError('Add your travel dates before continuing.')
+      return
+    }
+    if (!persons.trim()) {
+      setSearchError('Add how many persons are going before continuing.')
+      return
+    }
+    if (!tripType) {
+      setSearchError('Pick a trip type before continuing.')
+      return
+    }
+    setSearchError(null)
+    navigate(buildSearchUrl())
   }
 
   function handleQuickAction(key: string) {
@@ -390,7 +431,7 @@ export default function Dashboard() {
         navigate(firstTripId ? `/trips/${firstTripId}/calendar` : '/create-trip')
         break
       case 'budget':
-        navigate(firstTripId ? `/trips/${firstTripId}/budget` : '/create-trip')
+        navigate(trips.length > 0 ? '/budget' : '/create-trip')
         break
       case 'share':
         if (trips[0]) handleShareTrip(trips[0])
@@ -421,6 +462,15 @@ export default function Dashboard() {
   }, [search])
 
   const today = new Date().toISOString().slice(0, 10)
+  const estimatedTotalSpend = trips.reduce((sum, trip) => {
+    const cached = loadCachedItinerary(trip.id)
+    if (!cached) return sum
+    const tripTotal = cached.days.reduce(
+      (daySum, day) => daySum + day.activities.reduce((actSum, a) => actSum + (a.estimated_cost || 0), 0),
+      0,
+    )
+    return sum + tripTotal
+  }, 0)
   const draftTrips = trips.filter((t) => t.status === 'draft')
   const upcomingTrips = trips.filter((t) => t.status !== 'draft' && (!t.end_date || t.end_date >= today))
   const completedTrips = trips.filter((t) => t.status !== 'draft' && t.end_date && t.end_date < today)
@@ -430,17 +480,16 @@ export default function Dashboard() {
   const nextTripDays = nextTrip?.start_date
     ? Math.ceil((new Date(nextTrip.start_date).getTime() - new Date(today).getTime()) / 86400000)
     : null
-  const firstTripId = trips[0]?.id
 
   return (
     <div className="min-h-svh bg-slate-50">
       <div className="relative isolate flex h-[75svh] flex-col">
         <div className="absolute inset-0 -z-10 overflow-hidden">
-          <img src={HERO_IMAGE_URL} alt="" className="h-full w-full scale-105 object-cover blur-[2px]" />
+          <img src={heroImage} alt="" className="h-full w-full object-cover" />
           <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-slate-50" />
         </div>
 
-        <AppHeader />
+        <AppHeader overHero />
 
         <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 px-4 sm:px-6">
           <div className="text-center text-white drop-shadow-md">
@@ -485,13 +534,16 @@ export default function Dashboard() {
                     </DropdownPortal>
                   )}
                 </div>
-                <Link
-                  to={buildSearchUrl()}
+                <button
+                  type="button"
+                  onClick={handleSearchClick}
                   className="flex flex-shrink-0 items-center justify-center rounded-[50px] bg-slate-900 px-6 py-3.5 text-sm font-medium text-white transition hover:bg-slate-700"
                 >
                   Search
-                </Link>
+                </button>
               </div>
+
+              {searchError && <p className="mt-3 text-sm text-red-600">{searchError}</p>}
 
               <div className="mt-4 flex flex-col gap-3 sm:flex-row">
                 <div className="sm:flex-1">
@@ -566,6 +618,7 @@ export default function Dashboard() {
                   const params = new URLSearchParams({ name: city.name })
                   if (fromDate) params.set('start', fromDate)
                   if (toDate) params.set('end', toDate)
+                  if (persons.trim()) params.set('persons', persons.trim())
                   navigate(`/cities?${params.toString()}`)
                 }}
               />
@@ -634,14 +687,17 @@ export default function Dashboard() {
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="text-sm text-slate-500">Estimated total spend</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900">—</p>
-              <p className="mt-1 text-xs text-slate-400">Add activities to a trip to see cost estimates</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-900">
+                {estimatedTotalSpend > 0 ? formatCurrency(estimatedTotalSpend) : '—'}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                {estimatedTotalSpend > 0
+                  ? 'Sum of AI-suggested activity costs across your trips'
+                  : 'Generate an itinerary for a trip to see cost estimates'}
+              </p>
             </div>
           </div>
-          <Link
-            to={firstTripId ? `/trips/${firstTripId}/budget` : '/create-trip'}
-            className="mt-4 inline-block text-sm font-medium text-slate-900 hover:underline"
-          >
+          <Link to="/budget" className="mt-4 inline-block text-sm font-medium text-slate-900 hover:underline">
             View Full Budget
           </Link>
         </section>
@@ -654,6 +710,25 @@ export default function Dashboard() {
           </div>
         </section>
       </main>
+
+      {tripPendingDelete && (
+        <ConfirmDialog
+          title={`Delete "${tripPendingDelete.name}"?`}
+          message="This can't be undone."
+          confirmLabel="Delete"
+          danger
+          onCancel={() => setTripPendingDelete(null)}
+          onConfirm={confirmDeleteTrip}
+        />
+      )}
+
+      {shareLink && <ShareModal url={shareLink.url} slug={shareLink.slug} onClose={() => setShareLink(null)} />}
+
+      {shareError && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-slate-900 px-5 py-2.5 text-sm text-white shadow-lg">
+          {shareError}
+        </div>
+      )}
     </div>
   )
 }

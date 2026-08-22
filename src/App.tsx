@@ -12,8 +12,11 @@ import CitySearch from './pages/CitySearch'
 import ActivitySearch from './pages/ActivitySearch'
 import TripCalendar from './pages/TripCalendar'
 import TripBudget from './pages/TripBudget'
+import BudgetOverview from './pages/BudgetOverview'
 import SharedTrip from './pages/SharedTrip'
+import Admin from './pages/Admin'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { AdminRoute } from './components/AdminRoute'
 
 function App() {
   return (
@@ -80,6 +83,14 @@ function App() {
         }
       />
       <Route
+        path="/budget"
+        element={
+          <ProtectedRoute>
+            <BudgetOverview />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/settings"
         element={
           <ProtectedRoute>
@@ -100,6 +111,16 @@ function App() {
         element={
           <ProtectedRoute>
             <ActivitySearch />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <AdminRoute>
+              <Admin />
+            </AdminRoute>
           </ProtectedRoute>
         }
       />

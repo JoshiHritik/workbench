@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
+import { loadCachedItinerary } from '../lib/itineraryCache'
+import { loadNotificationPrefs } from '../lib/notificationPrefs'
 import type { Trip } from '../lib/types'
 
 interface Notification {
@@ -55,21 +57,44 @@ export function NotificationsMenu() {
       soon.setDate(soon.getDate() + 7)
       const soonIso = soon.toISOString().slice(0, 10)
 
+      const prefs = loadNotificationPrefs()
       const items: Notification[] = []
       data.forEach((trip: Trip) => {
-        if (trip.status === 'draft') {
+        if (prefs.draftNudges && trip.status === 'draft') {
           items.push({
             id: `draft-${trip.id}`,
             message: `"${trip.name}" is still a draft. Finish planning it.`,
             tripId: trip.id,
           })
         }
-        if (trip.status === 'active' && trip.start_date && trip.start_date >= today && trip.start_date <= soonIso) {
+        if (
+          prefs.tripReminders &&
+          trip.status === 'active' &&
+          trip.start_date &&
+          trip.start_date >= today &&
+          trip.start_date <= soonIso
+        ) {
           items.push({
             id: `upcoming-${trip.id}`,
             message: `"${trip.name}" starts soon.`,
             tripId: trip.id,
           })
+        }
+        if (prefs.budgetAlerts && trip.budget) {
+          const cached = loadCachedItinerary(trip.id)
+          if (cached) {
+            const estimated = cached.days.reduce(
+              (sum, day) => sum + day.activities.reduce((s, a) => s + (a.estimated_cost || 0), 0),
+              0,
+            )
+            if (estimated > trip.budget) {
+              items.push({
+                id: `budget-${trip.id}`,
+                message: `"${trip.name}"'s suggested itinerary is over your budget.`,
+                tripId: trip.id,
+              })
+            }
+          }
         }
       })
       setNotifications(items)
