@@ -4,6 +4,8 @@ import Signup from './pages/Signup'
 import ForgotPassword from './pages/ForgotPassword'
 import UpdatePassword from './pages/UpdatePassword'
 import Dashboard from './pages/Dashboard'
+import CreateTrip from './pages/CreateTrip'
+import TripDetail from './pages/TripDetail'
 import { ProtectedRoute } from './components/ProtectedRoute'
 
 function App() {
@@ -26,6 +28,22 @@ function App() {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/create-trip"
+        element={
+          <ProtectedRoute>
+            <CreateTrip />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/trips/:tripId"
+        element={
+          <ProtectedRoute>
+            <TripDetail />
           </ProtectedRoute>
         }
       />
