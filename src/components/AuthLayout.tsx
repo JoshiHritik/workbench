@@ -17,6 +17,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           className="h-full w-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/85 via-slate-900/10 to-transparent" />
+        <div className="absolute inset-y-0 left-0 w-40 bg-gradient-to-r from-white to-transparent" />
         <div className="absolute bottom-12 left-10 right-10 text-white">
           <p className="text-2xl font-semibold">Plan your next adventure</p>
           <p className="mt-2 text-sm text-white/80">

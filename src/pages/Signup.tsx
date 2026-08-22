@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { AuthLayout } from '../components/AuthLayout'
+import { GoogleButton } from '../components/GoogleButton'
 
 export default function Signup() {
   const navigate = useNavigate()
@@ -74,7 +75,7 @@ export default function Signup() {
               autoComplete="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+              className="w-full rounded-[50px] border border-slate-300 px-5 py-2 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
               placeholder="Jane Doe"
             />
           </div>
@@ -89,7 +90,7 @@ export default function Signup() {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+              className="w-full rounded-[50px] border border-slate-300 px-5 py-2 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
               placeholder="you@example.com"
             />
           </div>
@@ -104,7 +105,7 @@ export default function Signup() {
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+              className="w-full rounded-[50px] border border-slate-300 px-5 py-2 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
               placeholder="••••••••"
             />
           </div>
@@ -119,7 +120,7 @@ export default function Signup() {
               autoComplete="new-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+              className="w-full rounded-[50px] border border-slate-300 px-5 py-2 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
               placeholder="••••••••"
             />
           </div>
@@ -138,11 +139,19 @@ export default function Signup() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-[50px] bg-slate-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? 'Creating account…' : 'Sign up'}
           </button>
         </form>
+
+        <div className="my-5 flex items-center gap-3">
+          <div className="h-px flex-1 bg-slate-200" />
+          <span className="text-xs text-slate-400">OR</span>
+          <div className="h-px flex-1 bg-slate-200" />
+        </div>
+
+        <GoogleButton />
 
         <p className="mt-6 text-center text-sm text-slate-500">
           Already have an account?{' '}
