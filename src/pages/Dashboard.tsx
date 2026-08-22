@@ -5,10 +5,21 @@ import { useAuth } from '../context/AuthContext'
 import { AppHeader } from '../components/AppHeader'
 import type { City, Trip } from '../lib/types'
 
+const TRIP_TYPES = ['Friendly', 'Couple', 'Family', 'Solo']
+
 function formatDateRange(start: string | null, end: string | null) {
   if (!start || !end) return 'Dates not set'
   const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
   return `${new Date(start).toLocaleDateString(undefined, opts)} – ${new Date(end).toLocaleDateString(undefined, opts)}`
+}
+
+function CityCard({ city }: { city: City }) {
+  return (
+    <div className="w-36 flex-shrink-0 rounded-xl border border-slate-200 bg-white p-4 text-center shadow-sm">
+      <p className="font-medium text-slate-900">{city.name}</p>
+      <p className="mt-1 text-xs text-slate-500">{city.country}</p>
+    </div>
+  )
 }
 
 export default function Dashboard() {
@@ -17,7 +28,11 @@ export default function Dashboard() {
   const [cities, setCities] = useState<City[]>([])
   const [loading, setLoading] = useState(true)
 
-  const name = (session?.user.user_metadata?.full_name as string | undefined) || session?.user.email
+  const [search, setSearch] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [budget, setBudget] = useState('')
+  const [tripType, setTripType] = useState('')
 
   useEffect(() => {
     if (!session) return
@@ -29,7 +44,7 @@ export default function Dashboard() {
           .select('*')
           .eq('user_id', session!.user.id)
           .order('created_at', { ascending: false }),
-        supabase.from('cities').select('*').order('popularity', { ascending: false }).limit(6),
+        supabase.from('cities').select('*').order('popularity', { ascending: false }),
       ])
 
       if (tripsRes.data) setTrips(tripsRes.data)
@@ -40,23 +55,111 @@ export default function Dashboard() {
     loadDashboard()
   }, [session])
 
+  const query = search.trim().toLowerCase()
+  const matchesSearch = (city: City) =>
+    !query || city.name.toLowerCase().includes(query) || city.country.toLowerCase().includes(query)
+
+  const indiaCities = cities.filter((c) => c.country === 'India' && matchesSearch(c))
+  const internationalCities = cities.filter((c) => c.country !== 'India' && matchesSearch(c))
+
   return (
     <div className="min-h-svh bg-slate-50">
       <AppHeader />
 
-      <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Welcome back{name ? `, ${name}` : ''}</h1>
-            <p className="mt-1 text-sm text-slate-500">Here's what's happening with your trips.</p>
+      <main className="mx-auto max-w-5xl px-4 pb-10 sm:px-6">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search destinations…"
+              className="w-full flex-1 rounded-[50px] border border-slate-300 px-5 py-3.5 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+            />
+            <Link
+              to="/create-trip"
+              className="flex flex-shrink-0 items-center justify-center rounded-[50px] bg-slate-900 px-6 py-3.5 text-sm font-medium text-white transition hover:bg-slate-700"
+            >
+              + Plan New Trip
+            </Link>
           </div>
-          <Link
-            to="/create-trip"
-            className="rounded-[50px] bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-700"
-          >
-            + Plan New Trip
-          </Link>
+
+          <div className="mt-4 flex flex-wrap gap-3">
+            <div className="flex items-center gap-2">
+              <label htmlFor="fromDate" className="text-xs font-medium text-slate-500">
+                From
+              </label>
+              <input
+                id="fromDate"
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="rounded-[50px] border border-slate-300 px-4 py-2 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="toDate" className="text-xs font-medium text-slate-500">
+                To
+              </label>
+              <input
+                id="toDate"
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="rounded-[50px] border border-slate-300 px-4 py-2 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+              />
+            </div>
+            <input
+              type="number"
+              value={budget}
+              onChange={(e) => setBudget(e.target.value)}
+              placeholder="Budget"
+              className="w-32 rounded-[50px] border border-slate-300 px-4 py-2 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+            />
+            <select
+              value={tripType}
+              onChange={(e) => setTripType(e.target.value)}
+              className="rounded-[50px] border border-slate-300 px-4 py-2 text-sm text-slate-700 outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+            >
+              <option value="">Trip type</option>
+              {TRIP_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
+
+        <section className="mt-8">
+          <h2 className="text-lg font-semibold text-slate-900">Popular in India</h2>
+          {loading ? (
+            <p className="mt-3 text-sm text-slate-500">Loading…</p>
+          ) : indiaCities.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-500">No matching cities.</p>
+          ) : (
+            <div className="mt-3 flex gap-4 overflow-x-auto pb-2">
+              {indiaCities.map((city) => (
+                <CityCard key={city.id} city={city} />
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="mt-8">
+          <h2 className="text-lg font-semibold text-slate-900">International Cities</h2>
+          {loading ? (
+            <p className="mt-3 text-sm text-slate-500">Loading…</p>
+          ) : internationalCities.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-500">No matching cities.</p>
+          ) : (
+            <div className="mt-3 flex gap-4 overflow-x-auto pb-2">
+              {internationalCities.map((city) => (
+                <CityCard key={city.id} city={city} />
+              ))}
+            </div>
+          )}
+        </section>
 
         <section className="mt-10">
           <h2 className="text-lg font-semibold text-slate-900">Your trips</h2>
@@ -83,22 +186,6 @@ export default function Dashboard() {
                   <p className="font-medium text-slate-900">{trip.name}</p>
                   <p className="mt-1 text-sm text-slate-500">{formatDateRange(trip.start_date, trip.end_date)}</p>
                 </Link>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="mt-10">
-          <h2 className="text-lg font-semibold text-slate-900">Recommended destinations</h2>
-          {loading ? (
-            <p className="mt-3 text-sm text-slate-500">Loading…</p>
-          ) : (
-            <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-              {cities.map((city) => (
-                <div key={city.id} className="rounded-xl border border-slate-200 bg-white p-4 text-center shadow-sm">
-                  <p className="font-medium text-slate-900">{city.name}</p>
-                  <p className="mt-1 text-xs text-slate-500">{city.country}</p>
-                </div>
               ))}
             </div>
           )}
