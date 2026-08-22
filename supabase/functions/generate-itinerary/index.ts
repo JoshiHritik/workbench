@@ -74,6 +74,11 @@ local restaurants. Accuracy matters more than variety.
 
 Use 12-hour time with AM/PM (e.g. "9:00 AM", "2:30 PM"), never 24-hour time.
 
+For each day, also write a short 3-6 word "theme" that summarizes what that day is about (e.g.
+"Old City Heritage and Riverfront Evening"). For each activity, also include a short "best_time"
+field: 2-4 words on the best time to go, considering crowds, light for photos, or opening hours
+(e.g. "Early morning, fewer crowds" or "Sunset for photos").
+
 Respond with ONLY valid JSON (no markdown fences, no commentary) matching exactly this shape:
 {
   "days": [
@@ -81,8 +86,9 @@ Respond with ONLY valid JSON (no markdown fences, no commentary) matching exactl
       "day": 1,
       "date": "YYYY-MM-DD",
       "city": "string",
+      "theme": "string",
       "activities": [
-        { "time": "9:00 AM", "name": "string", "category": "string", "estimated_cost": 0, "tip": "string" }
+        { "time": "9:00 AM", "name": "string", "category": "string", "estimated_cost": 0, "tip": "string", "best_time": "string" }
       ]
     }
   ]

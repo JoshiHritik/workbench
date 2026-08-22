@@ -6,6 +6,7 @@ import { AppHeader } from '../components/AppHeader'
 import { DateRangePicker } from '../components/DateRangePicker'
 import { TripTypeSelect } from '../components/TripTypeSelect'
 import { DropdownPortal } from '../components/DropdownPortal'
+import { searchCities } from '../lib/citySearch'
 import type { City, Trip } from '../lib/types'
 
 const HERO_IMAGE_URL =
@@ -360,6 +361,19 @@ export default function Dashboard() {
     return query ? `/create-trip?${query}` : '/create-trip'
   }
 
+  // With a destination typed in, "Search" takes the user to that city's page
+  // first (things to do, a real map) rather than straight into trip creation.
+  // With nothing typed, there's no city to explore, so it falls back to
+  // starting a blank trip — same as before.
+  function buildSearchUrl() {
+    if (!search.trim()) return buildCreateTripUrl()
+    const params = new URLSearchParams()
+    params.set('name', search.trim())
+    if (fromDate) params.set('start', fromDate)
+    if (toDate) params.set('end', toDate)
+    return `/cities?${params.toString()}`
+  }
+
   function handleQuickAction(key: string) {
     const firstTripId = trips[0]?.id
     switch (key) {
@@ -396,13 +410,8 @@ export default function Dashboard() {
 
     let cancelled = false
     const timeout = setTimeout(async () => {
-      const { data } = await supabase
-        .from('cities')
-        .select('*')
-        .ilike('name', `%${query}%`)
-        .order('popularity', { ascending: false })
-        .limit(6)
-      if (!cancelled && data) setSuggestions(data)
+      const results = await searchCities(query)
+      if (!cancelled) setSuggestions(results)
     }, 250)
 
     return () => {
@@ -477,10 +486,10 @@ export default function Dashboard() {
                   )}
                 </div>
                 <Link
-                  to={buildCreateTripUrl()}
+                  to={buildSearchUrl()}
                   className="flex flex-shrink-0 items-center justify-center rounded-[50px] bg-slate-900 px-6 py-3.5 text-sm font-medium text-white transition hover:bg-slate-700"
                 >
-                  + Plan New Trip
+                  Search
                 </Link>
               </div>
 
@@ -551,7 +560,15 @@ export default function Dashboard() {
             <p className="mt-3 text-sm text-slate-500">No cities yet.</p>
           ) : (
             <div className="mt-3">
-              <CityCardRow cities={featuredCities} onSelectCity={(city) => setSearch(city.name)} />
+              <CityCardRow
+                cities={featuredCities}
+                onSelectCity={(city) => {
+                  const params = new URLSearchParams({ name: city.name })
+                  if (fromDate) params.set('start', fromDate)
+                  if (toDate) params.set('end', toDate)
+                  navigate(`/cities?${params.toString()}`)
+                }}
+              />
             </div>
           )}
         </section>

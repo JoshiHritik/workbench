@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { AppHeader } from '../components/AppHeader'
-import { formatCurrency } from '../lib/format'
+import { useCurrency } from '../context/CurrencyContext'
 import type { Trip } from '../lib/types'
 
 interface CostLine {
@@ -22,6 +22,7 @@ export default function TripBudget() {
   const [trip, setTrip] = useState<Trip | null>(null)
   const [costsByCategory, setCostsByCategory] = useState<CostLine[]>([])
   const [loading, setLoading] = useState(true)
+  const { format: formatCurrency } = useCurrency()
 
   useEffect(() => {
     if (!tripId) return

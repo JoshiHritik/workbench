@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import { AppHeader } from '../components/AppHeader'
 import { LanguageSelect } from '../components/LanguageSelect'
+import { AvatarCropModal } from '../components/AvatarCropModal'
 import type { Profile } from '../lib/types'
 
 const MAX_AVATAR_BYTES = 3 * 1024 * 1024
@@ -18,6 +19,7 @@ export default function Settings() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [cropFile, setCropFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -47,6 +49,7 @@ export default function Settings() {
 
   function handleAvatarChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null
+    e.target.value = ''
     if (!file) return
     if (!file.type.startsWith('image/')) {
       setError('Avatar must be an image.')
@@ -57,7 +60,12 @@ export default function Settings() {
       return
     }
     setError(null)
-    setAvatarFile(file)
+    setCropFile(file)
+  }
+
+  function handleCropConfirm(blob: Blob) {
+    setAvatarFile(new File([blob], 'avatar.jpg', { type: 'image/jpeg' }))
+    setCropFile(null)
   }
 
   async function handleSave() {
@@ -200,6 +208,10 @@ export default function Settings() {
           </p>
         </div>
       </main>
+
+      {cropFile && (
+        <AvatarCropModal file={cropFile} onCancel={() => setCropFile(null)} onConfirm={handleCropConfirm} />
+      )}
     </div>
   )
 }

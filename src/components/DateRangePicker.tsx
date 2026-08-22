@@ -86,7 +86,6 @@ export function DateRangePicker({ startDate, endDate, onChange }: DateRangePicke
   ]
 
   const label = startDate ? `${formatDisplay(startDate)}${endDate ? ` - ${formatDisplay(endDate)}` : ''}` : 'Add dates'
-  const today = toISO(new Date())
   const presets = buildPresets()
 
   function applyPreset(start: string, end: string) {
@@ -158,7 +157,6 @@ export function DateRangePicker({ startDate, endDate, onChange }: DateRangePicke
               if (!iso) return <div key={idx} />
               const isEdge = iso === startDate || iso === endDate
               const inRange = Boolean(startDate && endDate && iso > startDate && iso < endDate)
-              const isToday = iso === today
               return (
                 <button
                   key={iso}
@@ -170,7 +168,7 @@ export function DateRangePicker({ startDate, endDate, onChange }: DateRangePicke
                       : inRange
                         ? 'bg-slate-100 text-slate-900'
                         : 'text-slate-700 hover:bg-slate-100'
-                  } ${isToday && !isEdge ? 'ring-1 ring-inset ring-slate-400' : ''}`}
+                  }`}
                 >
                   {Number(iso.slice(-2))}
                 </button>

@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { AppHeader } from '../components/AppHeader'
 import { DateRangePicker } from '../components/DateRangePicker'
 import { DropdownPortal } from '../components/DropdownPortal'
-import { formatCurrency } from '../lib/format'
+import { useCurrency } from '../context/CurrencyContext'
 import type { City, Trip, TripStop } from '../lib/types'
 
 interface StopWithCity extends TripStop {
@@ -23,6 +23,7 @@ export default function TripDetail() {
   const { session } = useAuth()
   const [trip, setTrip] = useState<Trip | null>(null)
   const [loading, setLoading] = useState(true)
+  const { format: formatCurrency } = useCurrency()
 
   const [stops, setStops] = useState<StopWithCity[]>([])
   const [citySearch, setCitySearch] = useState('')

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
-import { formatCurrency } from '../lib/format'
+import { useCurrency } from '../context/CurrencyContext'
 import type { Trip } from '../lib/types'
 
 function formatDateRange(start: string | null, end: string | null) {
@@ -18,6 +18,7 @@ export default function SharedTrip() {
   const [trip, setTrip] = useState<Trip | null>(null)
   const [loading, setLoading] = useState(true)
   const [copying, setCopying] = useState(false)
+  const { format: formatCurrency } = useCurrency()
 
   useEffect(() => {
     if (!slug) return
