@@ -41,7 +41,7 @@ function Toggle({ checked, onChange, label, hint }: { checked: boolean; onChange
 
 function Card({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return (
-    <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">
+    <div className="mt-8 border-t border-slate-200 pt-8">
       <h2 className="text-base font-semibold text-slate-900">{title}</h2>
       {description && <p className="mt-0.5 text-xs text-slate-500">{description}</p>}
       <div className="mt-4">{children}</div>
@@ -350,7 +350,7 @@ export default function Settings() {
   return (
     <div className="min-h-svh bg-slate-50">
       <AppHeader />
-      <main className="mx-auto max-w-lg px-4 py-10 sm:px-6">
+      <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
         <h1 className="text-2xl font-semibold text-slate-900">Profile & Settings</h1>
         <p className="mt-1 text-sm text-slate-500">Manage your identity, preferences, and privacy.</p>
 
@@ -506,15 +506,6 @@ export default function Settings() {
             checked={notifPrefs.draftNudges}
             onChange={(v) => handleNotifChange('draftNudges', v)}
           />
-          <div className="flex items-center justify-between gap-4 py-2.5 opacity-50">
-            <div>
-              <p className="text-sm text-slate-700">Email notifications</p>
-              <p className="text-xs text-slate-400">Not available yet — no email service is connected.</p>
-            </div>
-            <button type="button" disabled className="relative h-6 w-11 flex-shrink-0 cursor-not-allowed rounded-full bg-slate-200">
-              <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm" />
-            </button>
-          </div>
           {notifSaved && <p role="status" className="mt-2 text-xs text-emerald-600">Saved.</p>}
         </Card>
 
@@ -610,7 +601,7 @@ export default function Settings() {
           </button>
         </Card>
 
-        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">
+        <div className="mt-8 border-t border-slate-200 pt-8">
           <button
             type="button"
             onClick={async () => {
@@ -623,8 +614,8 @@ export default function Settings() {
           </button>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-red-200 bg-red-50/40 p-6">
-          <p className="text-sm font-medium text-slate-700">Delete account data</p>
+        <div className="mt-8 border-t border-red-200 pt-8">
+          <p className="text-sm font-medium text-red-700">Delete account data</p>
           <p className="mt-1 text-xs text-slate-500">
             This permanently deletes all your trips and profile data and signs you out. Your login itself isn't
             removed from Supabase Auth by this — that step requires contacting support, since it can't be done

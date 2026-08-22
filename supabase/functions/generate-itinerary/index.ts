@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
 
     const prompt = `Plan a ${tripLength}-day trip to ${destination}, from ${startDate} to ${endDate}.
 ${budget ? `Total budget: ${budget}.` : ''}
-${tripVibe ? `Trip vibe: ${tripVibe}.` : ''}
+${tripVibe ? `Trip vibe: ${tripVibe}. At least 60% of the activities across the trip must be a genuine match for this vibe (e.g. for "Cultural" prioritize temples, museums, heritage sites, local markets and traditional food; for "Adventure" prioritize hikes, outdoor sports and nature; for "Relaxation" prioritize spas, beaches, parks and slow-paced spots; for "Nightlife" prioritize bars, live music and evening entertainment; for "Food" prioritize named restaurants, street food and food markets). Set each activity's "category" field to reflect this (e.g. "Cultural", "Adventure", "Food", "Relaxation", "Nightlife", "Sightseeing"). The remaining activities can cover practical needs like meals and transit.` : ''}
 ${description ? `Notes from the traveler: ${description}` : ''}
 
 For every activity, name a SPECIFIC real (or realistic, if you're not certain) place — a named

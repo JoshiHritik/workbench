@@ -16,9 +16,14 @@ export function DropdownPortal({ anchorRef, children }: DropdownPortalProps) {
   useLayoutEffect(() => {
     if (!anchorRef.current) return
     const rect = anchorRef.current.getBoundingClientRect()
+    const margin = 8
+    // Clamp so the dropdown never renders past the right edge of a narrow
+    // (phone-width) viewport — without this, a dropdown wider than the
+    // remaining space to the anchor's right would run off-screen.
+    const left = Math.min(rect.left + window.scrollX, window.innerWidth + window.scrollX - rect.width - margin)
     setStyle({
       top: rect.bottom + window.scrollY + 8,
-      left: rect.left + window.scrollX,
+      left: Math.max(left, margin),
       minWidth: rect.width,
     })
   }, [anchorRef])

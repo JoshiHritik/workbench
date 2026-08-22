@@ -12,7 +12,7 @@ import { fetchWikiInfo } from '../lib/wiki'
 const MAX_COVER_PHOTO_BYTES = 5 * 1024 * 1024
 
 const inputClass =
-  'w-full rounded-[50px] border border-slate-300 px-5 py-3.5 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500'
+  'w-full rounded-[50px] border border-slate-300 bg-white px-5 py-3.5 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500'
 
 type SaveStatus = 'draft' | 'active'
 
@@ -80,6 +80,9 @@ export default function CreateTrip() {
     if (!startDate) return 'Start date is required.'
     if (!endDate) return 'End date is required.'
     if (endDate < startDate) return 'End date must be on or after the start date.'
+    if (!budget.trim()) return 'Budget is required.'
+    if (!travelers.trim()) return 'Travelers is required.'
+    if (!tripVibe) return 'Trip vibe is required.'
     return null
   }
 
@@ -177,10 +180,15 @@ export default function CreateTrip() {
   }
 
   return (
-    <div className="min-h-svh bg-slate-50">
-      <AppHeader />
+    <div className="relative min-h-svh overflow-hidden bg-slate-50">
+      <div
+        className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-20"
+        style={{ backgroundImage: "url('/images/create-trip-bg.jpg')" }}
+        aria-hidden="true"
+      />
+      <AppHeader blur />
 
-      <main className="mx-auto max-w-lg px-4 py-10 sm:px-6">
+      <main className="relative z-10 mx-auto max-w-2xl px-4 py-10 sm:px-6">
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-slate-900">Create a trip</h1>
@@ -234,14 +242,14 @@ export default function CreateTrip() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="w-full rounded-2xl border border-slate-300 px-5 py-3 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+              className="w-full rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
               placeholder="What's this trip about?"
             />
           </div>
 
           <div>
             <label htmlFor="travelers" className="mb-1 block text-sm font-medium text-slate-700">
-              Travelers <span className="font-normal text-slate-400">(optional)</span>
+              Travelers
             </label>
             <input
               id="travelers"
@@ -257,7 +265,7 @@ export default function CreateTrip() {
           <div className="flex gap-4">
             <div className="flex-1">
               <label htmlFor="budget" className="mb-1 block text-sm font-medium text-slate-700">
-                Budget <span className="font-normal text-slate-400">(optional)</span>
+                Budget
               </label>
               <div className="relative">
                 <span className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-sm text-slate-400">
@@ -308,7 +316,7 @@ export default function CreateTrip() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="mt-1 flex h-32 w-full items-center justify-center rounded-2xl border border-dashed border-slate-300 text-sm text-slate-500 transition hover:border-slate-400 hover:text-slate-700"
+                className="mt-1 flex h-32 w-full items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white text-sm text-slate-500 transition hover:border-slate-400 hover:text-slate-700"
               >
                 + Add a cover photo
               </button>
@@ -323,7 +331,7 @@ export default function CreateTrip() {
             />
           </div>
 
-          <div className="flex items-center justify-between rounded-2xl border border-slate-200 px-5 py-3.5">
+          <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-5 py-3.5">
             <div>
               <p className="text-sm font-medium text-slate-700">Make trip public</p>
               <p className="text-xs text-slate-400">Private by default. You can share it later.</p>
@@ -356,7 +364,7 @@ export default function CreateTrip() {
               type="button"
               onClick={() => handleSave('draft')}
               disabled={saving !== null}
-              className="flex-1 rounded-[50px] border border-slate-300 px-5 py-3.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex-1 rounded-[50px] border border-slate-300 bg-white px-5 py-3.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving === 'draft' ? 'Saving…' : 'Save as draft'}
             </button>

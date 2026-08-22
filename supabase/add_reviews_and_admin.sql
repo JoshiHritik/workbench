@@ -53,17 +53,34 @@ alter table profiles add column if not exists is_admin boolean not null default 
 -- the same command together), so regular users keep exactly the access they
 -- already had — this only grants MORE visibility to rows where the caller
 -- is flagged is_admin, it never takes anything away.
+--
+-- The is_admin check goes through a SECURITY DEFINER function rather than a
+-- raw subquery on `profiles`, because a policy ON profiles that subqueries
+-- profiles directly causes Postgres to re-apply that same policy to the
+-- subquery, forever — infinite recursion. A SECURITY DEFINER function's
+-- internal query runs with the function owner's privileges, which bypasses
+-- RLS and breaks that cycle.
+create or replace function public.is_admin_user()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select coalesce((select is_admin from profiles where id = auth.uid()), false);
+$$;
+
 drop policy if exists "Admins can read all profiles" on profiles;
 create policy "Admins can read all profiles"
   on profiles for select
-  using (exists (select 1 from profiles admin_check where admin_check.id = auth.uid() and admin_check.is_admin = true));
+  using (public.is_admin_user());
 
 drop policy if exists "Admins can read all trips" on trips;
 create policy "Admins can read all trips"
   on trips for select
-  using (exists (select 1 from profiles where profiles.id = auth.uid() and profiles.is_admin = true));
+  using (public.is_admin_user());
 
 drop policy if exists "Admins can delete any review" on activity_reviews;
 create policy "Admins can delete any review"
   on activity_reviews for delete
-  using (exists (select 1 from profiles where profiles.id = auth.uid() and profiles.is_admin = true));
+  using (public.is_admin_user());
