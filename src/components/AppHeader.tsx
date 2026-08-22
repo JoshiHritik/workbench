@@ -6,11 +6,13 @@ import { NotificationsMenu } from './NotificationsMenu'
 import { CurrencySelect } from './CurrencySelect'
 
 interface AppHeaderProps {
-  /** Set when the header sits directly on top of a photo (currently just the Dashboard hero) — everywhere else it should stay plain so the wordmark stays readable against a plain page background. */
+  /** Set when the header sits directly on top of a dark photo (the Dashboard hero) — blurred background AND white text, since dark text would be unreadable there. */
   overHero?: boolean
+  /** Set when the page behind the header has decorative imagery but is still light (e.g. Create Trip's faint background) — blurred background, but keeps dark text since white would be unreadable on a light page. */
+  blur?: boolean
 }
 
-export function AppHeader({ overHero = false }: AppHeaderProps) {
+export function AppHeader({ overHero = false, blur = false }: AppHeaderProps) {
   const navigate = useNavigate()
   const { session } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -34,7 +36,7 @@ export function AppHeader({ overHero = false }: AppHeaderProps) {
   const name = (session?.user.user_metadata?.full_name as string | undefined) || session?.user.email
 
   return (
-    <header className={`relative z-20 ${overHero ? 'bg-slate-900/10 backdrop-blur-sm' : 'bg-transparent'}`}>
+    <header className={`relative z-20 ${overHero || blur ? 'bg-slate-900/10 backdrop-blur-sm' : 'bg-transparent'}`}>
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-2.5 sm:px-6">
         <Link
           to="/dashboard"

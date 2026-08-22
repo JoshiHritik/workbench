@@ -506,15 +506,6 @@ export default function Settings() {
             checked={notifPrefs.draftNudges}
             onChange={(v) => handleNotifChange('draftNudges', v)}
           />
-          <div className="flex items-center justify-between gap-4 py-2.5 opacity-50">
-            <div>
-              <p className="text-sm text-slate-700">Email notifications</p>
-              <p className="text-xs text-slate-400">Not available yet — no email service is connected.</p>
-            </div>
-            <button type="button" disabled className="relative h-6 w-11 flex-shrink-0 cursor-not-allowed rounded-full bg-slate-200">
-              <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm" />
-            </button>
-          </div>
           {notifSaved && <p role="status" className="mt-2 text-xs text-emerald-600">Saved.</p>}
         </Card>
 
