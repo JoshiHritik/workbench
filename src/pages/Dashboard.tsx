@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import { AppHeader } from '../components/AppHeader'
+import { DateRangePicker } from '../components/DateRangePicker'
+import { TripTypeSelect } from '../components/TripTypeSelect'
 import type { City, Trip } from '../lib/types'
 
-const TRIP_TYPES = ['Friendly', 'Couple', 'Family', 'Solo']
-
 const HERO_IMAGE_URL =
-  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=2000&q=80'
+  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=2000&q=80'
 
 function formatDateRange(start: string | null, end: string | null) {
   if (!start || !end) return 'Dates not set'
@@ -79,21 +79,171 @@ function CityCardRow({ cities }: { cities: City[] }) {
   return (
     <div className="relative">
       <ScrollArrow direction="left" onClick={() => scroll('left')} />
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-[5] w-10 bg-gradient-to-r from-slate-50 to-transparent" />
       <div ref={scrollRef} className="scrollbar-none flex gap-5 overflow-x-auto scroll-smooth px-1 pb-2">
         {cities.map((city) => (
           <CityCard key={city.id} city={city} />
         ))}
       </div>
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-[5] w-10 bg-gradient-to-l from-slate-50 to-transparent" />
       <ScrollArrow direction="right" onClick={() => scroll('right')} />
     </div>
   )
 }
 
+function tripStatusLabel(trip: Trip): { label: string; className: string } {
+  if (trip.status === 'draft') {
+    return { label: 'Draft', className: 'bg-amber-100 text-amber-700' }
+  }
+  const today = new Date().toISOString().slice(0, 10)
+  if (trip.end_date && trip.end_date < today) {
+    return { label: 'Completed', className: 'bg-slate-200 text-slate-600' }
+  }
+  return { label: 'Upcoming', className: 'bg-emerald-100 text-emerald-700' }
+}
+
+interface TripCardProps {
+  trip: Trip
+  stopCount: number
+  onDuplicate: (trip: Trip) => void
+  onDelete: (trip: Trip) => void
+  onShare: (trip: Trip) => void
+}
+
+function TripCard({ trip, stopCount, onDuplicate, onDelete, onShare }: TripCardProps) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const status = tripStatusLabel(trip)
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
+      <div className="relative h-32 w-full bg-slate-100">
+        {trip.cover_photo_url ? (
+          <img src={trip.cover_photo_url} alt={trip.name} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-slate-300">
+            <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6" />
+            </svg>
+          </div>
+        )}
+        <span className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-xs font-medium ${status.className}`}>
+          {status.label}
+        </span>
+
+        <div className="absolute right-2 top-2">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setMenuOpen((v) => !v)
+            }}
+            aria-label="Trip options"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-slate-600 shadow hover:bg-white"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="5" cy="12" r="1.5" />
+              <circle cx="12" cy="12" r="1.5" />
+              <circle cx="19" cy="12" r="1.5" />
+            </svg>
+          </button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+              <div className="absolute right-0 z-20 mt-1 w-36 rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    onDuplicate(trip)
+                  }}
+                  className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  Duplicate
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    onShare(trip)
+                  }}
+                  className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  Share
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    onDelete(trip)
+                  }}
+                  className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                >
+                  Delete
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="p-4">
+        <p className="font-medium text-slate-900">{trip.name}</p>
+        <p className="mt-1 text-sm text-slate-500">{formatDateRange(trip.start_date, trip.end_date)}</p>
+        <p className="mt-2 text-xs text-slate-400">
+          {stopCount > 0 ? `${stopCount} stop${stopCount === 1 ? '' : 's'} planned` : 'No destinations added yet'}
+          {' · Est. budget —'}
+        </p>
+
+        <div className="mt-3 flex gap-2">
+          <Link
+            to={`/trips/${trip.id}`}
+            className="flex-1 rounded-[50px] border border-slate-300 px-3 py-2 text-center text-xs font-medium text-slate-700 hover:bg-slate-50"
+          >
+            View Details
+          </Link>
+          <Link
+            to={`/trips/${trip.id}`}
+            className="flex-1 rounded-[50px] bg-slate-900 px-3 py-2 text-center text-xs font-medium text-white hover:bg-slate-700"
+          >
+            Edit Itinerary
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function StartJourneyCard() {
+  return (
+    <Link
+      to="/create-trip"
+      className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center transition hover:border-slate-400 hover:bg-slate-50"
+    >
+      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-2xl leading-none text-slate-500">
+        +
+      </span>
+      <p className="font-medium text-slate-900">Start a New Journey</p>
+      <p className="text-xs text-slate-500">Plan your next adventure</p>
+    </Link>
+  )
+}
+
+const QUICK_ACTIONS = [
+  { key: 'plan', label: 'Plan New Trip' },
+  { key: 'city', label: 'Add City' },
+  { key: 'activity', label: 'Find Activities' },
+  { key: 'calendar', label: 'View Calendar' },
+  { key: 'budget', label: 'Review Budget' },
+  { key: 'share', label: 'Share Itinerary' },
+] as const
+
 export default function Dashboard() {
   const { session } = useAuth()
+  const navigate = useNavigate()
   const [trips, setTrips] = useState<Trip[]>([])
-  const [indiaCities, setIndiaCities] = useState<City[]>([])
-  const [internationalCities, setInternationalCities] = useState<City[]>([])
+  const [stopCounts, setStopCounts] = useState<Record<string, number>>({})
+  const [featuredCities, setFeaturedCities] = useState<City[]>([])
   const [loading, setLoading] = useState(true)
 
   const [search, setSearch] = useState('')
@@ -108,7 +258,7 @@ export default function Dashboard() {
     if (!session) return
 
     async function loadDashboard() {
-      const [tripsRes, indiaRes, intlRes] = await Promise.all([
+      const [tripsRes, citiesRes] = await Promise.all([
         supabase
           .from('trips')
           .select('*')
@@ -117,27 +267,105 @@ export default function Dashboard() {
         supabase
           .from('cities')
           .select('*')
-          .eq('country', 'India')
           .not('image_url', 'is', null)
           .order('popularity', { ascending: false })
-          .limit(8),
-        supabase
-          .from('cities')
-          .select('*')
-          .neq('country', 'India')
-          .not('image_url', 'is', null)
-          .order('popularity', { ascending: false })
-          .limit(8),
+          .limit(16),
       ])
 
       if (tripsRes.data) setTrips(tripsRes.data)
-      if (indiaRes.data) setIndiaCities(indiaRes.data)
-      if (intlRes.data) setInternationalCities(intlRes.data)
+      if (citiesRes.data) setFeaturedCities(citiesRes.data)
       setLoading(false)
     }
 
     loadDashboard()
   }, [session])
+
+  // Stop counts per trip, used for the "N stops planned" progress line on
+  // each trip card. A separate lightweight query rather than joining into
+  // the main trips fetch above.
+  useEffect(() => {
+    if (trips.length === 0) {
+      setStopCounts({})
+      return
+    }
+    async function loadStopCounts() {
+      const { data } = await supabase
+        .from('trip_stops')
+        .select('trip_id')
+        .in('trip_id', trips.map((t) => t.id))
+      if (!data) return
+      const counts: Record<string, number> = {}
+      data.forEach((row: { trip_id: string }) => {
+        counts[row.trip_id] = (counts[row.trip_id] || 0) + 1
+      })
+      setStopCounts(counts)
+    }
+    loadStopCounts()
+  }, [trips])
+
+  async function handleDuplicateTrip(trip: Trip) {
+    const { data, error } = await supabase
+      .from('trips')
+      .insert({
+        user_id: session!.user.id,
+        name: `${trip.name} (copy)`,
+        start_date: trip.start_date,
+        end_date: trip.end_date,
+        description: trip.description,
+        cover_photo_url: trip.cover_photo_url,
+        is_public: false,
+        status: 'draft',
+      })
+      .select()
+      .single()
+    if (!error && data) setTrips((prev) => [data, ...prev])
+  }
+
+  async function handleDeleteTrip(trip: Trip) {
+    if (!window.confirm(`Delete "${trip.name}"? This can't be undone.`)) return
+    const { error } = await supabase.from('trips').delete().eq('id', trip.id)
+    if (!error) setTrips((prev) => prev.filter((t) => t.id !== trip.id))
+  }
+
+  async function handleShareTrip(trip: Trip) {
+    const { data: existing } = await supabase.from('shared_links').select('*').eq('trip_id', trip.id).maybeSingle()
+    let slug = existing?.public_slug
+    if (!slug) {
+      const { data, error } = await supabase.from('shared_links').insert({ trip_id: trip.id }).select().single()
+      if (error || !data) {
+        alert('Could not create a share link.')
+        return
+      }
+      slug = data.public_slug
+    }
+    await navigator.clipboard.writeText(`${window.location.origin}/shared/${slug}`)
+    alert('Share link copied to clipboard.')
+  }
+
+  function handleQuickAction(key: string) {
+    const firstTripId = trips[0]?.id
+    switch (key) {
+      case 'plan':
+        navigate('/create-trip')
+        break
+      case 'city':
+        navigate('/cities')
+        break
+      case 'activity':
+        navigate('/activities')
+        break
+      case 'calendar':
+        navigate(firstTripId ? `/trips/${firstTripId}/calendar` : '/create-trip')
+        break
+      case 'budget':
+        navigate(firstTripId ? `/trips/${firstTripId}/budget` : '/create-trip')
+        break
+      case 'share':
+        if (trips[0]) handleShareTrip(trips[0])
+        else navigate('/create-trip')
+        break
+    }
+  }
 
   // Live search against the full world-cities table (server-side — there are
   // ~90k rows, far too many to ever load into the browser).
@@ -165,12 +393,25 @@ export default function Dashboard() {
     }
   }, [search])
 
+  const today = new Date().toISOString().slice(0, 10)
+  const draftTrips = trips.filter((t) => t.status === 'draft')
+  const upcomingTrips = trips.filter((t) => t.status !== 'draft' && (!t.end_date || t.end_date >= today))
+  const completedTrips = trips.filter((t) => t.status !== 'draft' && t.end_date && t.end_date < today)
+  const nextTrip = upcomingTrips
+    .filter((t) => t.start_date && t.start_date >= today)
+    .sort((a, b) => (a.start_date! < b.start_date! ? -1 : 1))[0]
+  const nextTripDays = nextTrip?.start_date
+    ? Math.ceil((new Date(nextTrip.start_date).getTime() - new Date(today).getTime()) / 86400000)
+    : null
+  const firstTripId = trips[0]?.id
+
   return (
     <div className="min-h-svh bg-slate-50">
-      <div className="relative isolate flex h-[70svh] flex-col overflow-hidden">
+      <div className="relative isolate flex h-[75svh] flex-col">
         <div className="absolute inset-0 -z-10">
           <img src={HERO_IMAGE_URL} alt="" className="h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-white/55" />
+          <div className="absolute inset-0 bg-white/35" />
+          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-slate-50" />
         </div>
 
         <AppHeader />
@@ -219,22 +460,15 @@ export default function Dashboard() {
                 </Link>
               </div>
 
-              <div className="mt-6 flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2 rounded-[50px] border border-slate-300 px-2">
-                  <input
-                    aria-label="From date"
-                    type="date"
-                    value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                    className="rounded-[50px] px-2 py-2 text-sm outline-none"
-                  />
-                  <span className="text-slate-400">-</span>
-                  <input
-                    aria-label="To date"
-                    type="date"
-                    value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
-                    className="rounded-[50px] px-2 py-2 text-sm outline-none"
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                <div className="sm:flex-1">
+                  <DateRangePicker
+                    startDate={fromDate}
+                    endDate={toDate}
+                    onChange={(start, end) => {
+                      setFromDate(start)
+                      setToDate(end)
+                    }}
                   />
                 </div>
                 <input
@@ -243,49 +477,57 @@ export default function Dashboard() {
                   value={persons}
                   onChange={(e) => setPersons(e.target.value)}
                   placeholder="Persons"
-                  className="w-28 rounded-[50px] border border-slate-300 px-4 py-2 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+                  className="rounded-[50px] border border-slate-300 px-5 py-3.5 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500 sm:flex-1"
                 />
-                <select
-                  value={tripType}
-                  onChange={(e) => setTripType(e.target.value)}
-                  className="rounded-[50px] border border-slate-300 px-4 py-2 text-sm text-slate-700 outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
-                >
-                  <option value="">Trip type</option>
-                  {TRIP_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
+                <div className="sm:flex-1">
+                  <TripTypeSelect value={tripType} onChange={setTripType} />
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <main className="mx-auto max-w-5xl px-4 pb-10 pt-8 sm:px-6">
-        <section>
-          <h2 className="text-lg font-semibold text-slate-900">Popular in India</h2>
-          {loading ? (
-            <p className="mt-3 text-sm text-slate-500">Loading…</p>
-          ) : indiaCities.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-500">No cities yet.</p>
-          ) : (
-            <div className="mt-3">
-              <CityCardRow cities={indiaCities} />
+      <main className="mx-auto max-w-5xl px-4 pb-10 sm:px-6">
+        {!loading && trips.length > 0 && (
+          <section>
+            <h2 className="text-lg font-semibold text-slate-900">Trip summary</h2>
+            <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-xs text-slate-500">Total trips</p>
+                <p className="mt-1 text-xl font-semibold text-slate-900">{trips.length}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-xs text-slate-500">Upcoming</p>
+                <p className="mt-1 text-xl font-semibold text-slate-900">{upcomingTrips.length}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-xs text-slate-500">Drafts</p>
+                <p className="mt-1 text-xl font-semibold text-slate-900">{draftTrips.length}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-xs text-slate-500">Completed</p>
+                <p className="mt-1 text-xl font-semibold text-slate-900">{completedTrips.length}</p>
+              </div>
             </div>
-          )}
-        </section>
+            {nextTrip && nextTripDays !== null && (
+              <p className="mt-3 text-sm text-slate-600">
+                <span className="font-medium text-slate-900">{nextTrip.name}</span> starts in {nextTripDays} day
+                {nextTripDays === 1 ? '' : 's'}.
+              </p>
+            )}
+          </section>
+        )}
 
-        <section className="mt-8">
-          <h2 className="text-lg font-semibold text-slate-900">International Cities</h2>
+        <section className={trips.length > 0 ? 'mt-10' : undefined}>
+          <h2 className="text-lg font-semibold text-slate-900">Popular Destinations</h2>
           {loading ? (
             <p className="mt-3 text-sm text-slate-500">Loading…</p>
-          ) : internationalCities.length === 0 ? (
+          ) : featuredCities.length === 0 ? (
             <p className="mt-3 text-sm text-slate-500">No cities yet.</p>
           ) : (
             <div className="mt-3">
-              <CityCardRow cities={internationalCities} />
+              <CityCardRow cities={featuredCities} />
             </div>
           )}
         </section>
@@ -306,18 +548,40 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {draftTrips.length > 0 && draftTrips.length === trips.length && (
+                <p className="col-span-full text-sm text-amber-700">
+                  All your trips are still drafts. Continue planning to lock in dates and destinations.
+                </p>
+              )}
               {trips.map((trip) => (
-                <Link
+                <TripCard
                   key={trip.id}
-                  to={`/trips/${trip.id}`}
-                  className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md"
-                >
-                  <p className="font-medium text-slate-900">{trip.name}</p>
-                  <p className="mt-1 text-sm text-slate-500">{formatDateRange(trip.start_date, trip.end_date)}</p>
-                </Link>
+                  trip={trip}
+                  stopCount={stopCounts[trip.id] ?? 0}
+                  onDuplicate={handleDuplicateTrip}
+                  onDelete={handleDeleteTrip}
+                  onShare={handleShareTrip}
+                />
               ))}
+              <StartJourneyCard />
             </div>
           )}
+        </section>
+
+        <section className="mt-10">
+          <h2 className="text-lg font-semibold text-slate-900">Quick actions</h2>
+          <div className="mt-3 flex flex-wrap gap-3">
+            {QUICK_ACTIONS.map((action) => (
+              <button
+                key={action.key}
+                type="button"
+                onClick={() => handleQuickAction(action.key)}
+                className="rounded-[50px] border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
         </section>
 
         <section className="mt-10">
@@ -332,6 +596,20 @@ export default function Dashboard() {
               <p className="mt-1 text-2xl font-semibold text-slate-900">—</p>
               <p className="mt-1 text-xs text-slate-400">Add activities to a trip to see cost estimates</p>
             </div>
+          </div>
+          <Link
+            to={firstTripId ? `/trips/${firstTripId}/budget` : '/create-trip'}
+            className="mt-4 inline-block text-sm font-medium text-slate-900 hover:underline"
+          >
+            View Full Budget
+          </Link>
+        </section>
+
+        <section className="mt-10">
+          <h2 className="text-lg font-semibold text-slate-900">Upcoming events</h2>
+          <div className="mt-3 rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center">
+            <p className="text-sm text-slate-500">No upcoming events yet.</p>
+            <p className="mt-1 text-xs text-slate-400">Add activities to your itinerary to see them here.</p>
           </div>
         </section>
       </main>

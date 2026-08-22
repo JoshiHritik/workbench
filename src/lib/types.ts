@@ -7,6 +7,7 @@ export interface Trip {
   description: string | null
   cover_photo_url: string | null
   is_public: boolean
+  status: string
   created_at: string
 }
 

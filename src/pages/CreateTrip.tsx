@@ -1,13 +1,16 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import { AppHeader } from '../components/AppHeader'
+import { DateRangePicker } from '../components/DateRangePicker'
 
 const MAX_COVER_PHOTO_BYTES = 5 * 1024 * 1024
 
 const inputClass =
   'w-full rounded-[50px] border border-slate-300 px-5 py-3.5 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500'
+
+type SaveStatus = 'draft' | 'active'
 
 export default function CreateTrip() {
   const navigate = useNavigate()
@@ -17,8 +20,25 @@ export default function CreateTrip() {
   const [endDate, setEndDate] = useState('')
   const [description, setDescription] = useState('')
   const [coverPhoto, setCoverPhoto] = useState<File | null>(null)
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null)
+  const [isPublic, setIsPublic] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState<SaveStatus | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!coverPhoto) {
+      setCoverPreviewUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(coverPhoto)
+    setCoverPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [coverPhoto])
+
+  const isDirty = Boolean(
+    name || startDate || endDate || description || coverPhoto || isPublic,
+  )
 
   function validate(): string | null {
     if (!name.trim()) return 'Trip name is required.'
@@ -30,10 +50,7 @@ export default function CreateTrip() {
 
   function handleCoverPhotoChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null
-    if (!file) {
-      setCoverPhoto(null)
-      return
-    }
+    if (!file) return
     if (!file.type.startsWith('image/')) {
       setError('Cover photo must be an image.')
       e.target.value = ''
@@ -48,8 +65,17 @@ export default function CreateTrip() {
     setCoverPhoto(file)
   }
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
+  function handleRemoveCoverPhoto() {
+    setCoverPhoto(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  function handleClose() {
+    if (isDirty && !window.confirm('Discard this trip? Your changes will not be saved.')) return
+    navigate('/dashboard')
+  }
+
+  async function handleSave(status: SaveStatus) {
     setError(null)
 
     const validationError = validate()
@@ -58,14 +84,14 @@ export default function CreateTrip() {
       return
     }
 
-    setLoading(true)
+    setSaving(status)
 
     let coverPhotoUrl: string | null = null
     if (coverPhoto) {
       const path = `${session!.user.id}/${crypto.randomUUID()}-${coverPhoto.name}`
       const { error: uploadError } = await supabase.storage.from('trip-covers').upload(path, coverPhoto)
       if (uploadError) {
-        setLoading(false)
+        setSaving(null)
         setError(uploadError.message)
         return
       }
@@ -81,18 +107,25 @@ export default function CreateTrip() {
         end_date: endDate,
         description: description.trim() || null,
         cover_photo_url: coverPhotoUrl,
+        is_public: isPublic,
+        status,
       })
       .select()
       .single()
 
-    setLoading(false)
+    setSaving(null)
 
     if (insertError) {
       setError(insertError.message)
       return
     }
 
-    navigate(`/trips/${data.id}`)
+    navigate(status === 'draft' ? '/dashboard' : `/trips/${data.id}`)
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    await handleSave('active')
   }
 
   return (
@@ -100,8 +133,22 @@ export default function CreateTrip() {
       <AppHeader />
 
       <main className="mx-auto max-w-lg px-4 py-10 sm:px-6">
-        <h1 className="text-2xl font-semibold text-slate-900">Create a trip</h1>
-        <p className="mt-1 text-sm text-slate-500">Give it a name, some dates, and you're off.</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900">Create a trip</h1>
+            <p className="mt-1 text-sm text-slate-500">Give it a name, some dates, and you're off.</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleClose}
+            aria-label="Close"
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-slate-300 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M6 18L18 6" />
+            </svg>
+          </button>
+        </div>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
           <div>
@@ -118,36 +165,21 @@ export default function CreateTrip() {
             />
           </div>
 
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label htmlFor="startDate" className="mb-1 block text-sm font-medium text-slate-700">
-                Start date
-              </label>
-              <input
-                id="startDate"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className={inputClass}
-              />
-            </div>
-            <div className="flex-1">
-              <label htmlFor="endDate" className="mb-1 block text-sm font-medium text-slate-700">
-                End date
-              </label>
-              <input
-                id="endDate"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className={inputClass}
-              />
-            </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Travel dates</label>
+            <DateRangePicker
+              startDate={startDate}
+              endDate={endDate}
+              onChange={(start, end) => {
+                setStartDate(start)
+                setEndDate(end)
+              }}
+            />
           </div>
 
           <div>
             <label htmlFor="description" className="mb-1 block text-sm font-medium text-slate-700">
-              Description
+              Description <span className="font-normal text-slate-400">(optional)</span>
             </label>
             <textarea
               id="description"
@@ -160,16 +192,68 @@ export default function CreateTrip() {
           </div>
 
           <div>
-            <label htmlFor="coverPhoto" className="mb-1 block text-sm font-medium text-slate-700">
+            <label className="mb-1 block text-sm font-medium text-slate-700">
               Cover photo <span className="font-normal text-slate-400">(optional)</span>
             </label>
+            {coverPreviewUrl ? (
+              <div className="relative mt-1 h-40 w-full overflow-hidden rounded-2xl border border-slate-200">
+                <img src={coverPreviewUrl} alt="Cover preview" className="h-full w-full object-cover" />
+                <div className="absolute right-2 top-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="rounded-full bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-700 shadow hover:bg-white"
+                  >
+                    Replace
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRemoveCoverPhoto}
+                    className="rounded-full bg-white/90 px-3 py-1.5 text-xs font-medium text-red-600 shadow hover:bg-white"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="mt-1 flex h-32 w-full items-center justify-center rounded-2xl border border-dashed border-slate-300 text-sm text-slate-500 transition hover:border-slate-400 hover:text-slate-700"
+              >
+                + Add a cover photo
+              </button>
+            )}
             <input
+              ref={fileInputRef}
               id="coverPhoto"
               type="file"
               accept="image/*"
               onChange={handleCoverPhotoChange}
-              className="block w-full text-sm text-slate-500 file:mr-4 file:rounded-[50px] file:border file:border-slate-300 file:bg-white file:px-4 file:py-2 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-50"
+              className="hidden"
             />
+          </div>
+
+          <div className="flex items-center justify-between rounded-2xl border border-slate-200 px-5 py-3.5">
+            <div>
+              <p className="text-sm font-medium text-slate-700">Make trip public</p>
+              <p className="text-xs text-slate-400">Private by default. You can share it later.</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isPublic}
+              onClick={() => setIsPublic((v) => !v)}
+              className={`relative h-7 w-12 flex-shrink-0 appearance-none rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${
+                isPublic ? 'bg-slate-900' : 'bg-slate-200'
+              }`}
+            >
+              <span
+                className={`absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform ${
+                  isPublic ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
           </div>
 
           {error && (
@@ -178,13 +262,23 @@ export default function CreateTrip() {
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full appearance-none rounded-[50px] bg-slate-900 px-5 py-3.5 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? 'Creating…' : 'Save trip'}
-          </button>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => handleSave('draft')}
+              disabled={saving !== null}
+              className="flex-1 rounded-[50px] border border-slate-300 px-5 py-3.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving === 'draft' ? 'Saving…' : 'Save as draft'}
+            </button>
+            <button
+              type="submit"
+              disabled={saving !== null}
+              className="flex-1 appearance-none rounded-[50px] bg-slate-900 px-5 py-3.5 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving === 'active' ? 'Saving…' : 'Save & Continue'}
+            </button>
+          </div>
         </form>
       </main>
     </div>
