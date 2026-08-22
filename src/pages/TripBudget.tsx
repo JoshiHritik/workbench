@@ -3,16 +3,12 @@ import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { AppHeader } from '../components/AppHeader'
 import { useCurrency } from '../context/CurrencyContext'
+import { loadCachedItinerary } from '../lib/itineraryCache'
 import type { Trip } from '../lib/types'
 
 interface CostLine {
   category: string
   cost: number
-}
-
-interface TripActivityCostRow {
-  cost_override: number | null
-  activities: { cost: number | null; category: string | null } | null
 }
 
 const BAR_COLORS = ['bg-slate-900', 'bg-slate-700', 'bg-slate-500', 'bg-slate-400', 'bg-slate-300']
@@ -21,32 +17,32 @@ export default function TripBudget() {
   const { tripId } = useParams()
   const [trip, setTrip] = useState<Trip | null>(null)
   const [costsByCategory, setCostsByCategory] = useState<CostLine[]>([])
+  const [hasItinerary, setHasItinerary] = useState(false)
   const [loading, setLoading] = useState(true)
   const { format: formatCurrency } = useCurrency()
 
   useEffect(() => {
     if (!tripId) return
+    const id = tripId
 
     async function load() {
-      const { data: tripData } = await supabase.from('trips').select('*').eq('id', tripId).single()
+      const { data: tripData } = await supabase.from('trips').select('*').eq('id', id).single()
       setTrip(tripData)
 
-      const { data: stops } = await supabase.from('trip_stops').select('id').eq('trip_id', tripId)
-      const stopIds = (stops ?? []).map((s) => s.id)
-
-      if (stopIds.length > 0) {
-        const { data: tripActivities } = await supabase
-          .from('trip_activities')
-          .select('cost_override, activities(cost, category)')
-          .in('trip_stop_id', stopIds)
-
+      // Costs come from the AI-generated itinerary (cached per trip), which is
+      // the only place activity cost estimates actually exist in this app —
+      // the trip_activities table this used to read from is never populated.
+      const cached = loadCachedItinerary(id)
+      if (cached) {
+        setHasItinerary(true)
         const totals = new Map<string, number>()
-        ;((tripActivities ?? []) as unknown as TripActivityCostRow[]).forEach((row) => {
-          const category = row.activities?.category ?? 'Other'
-          const cost = row.cost_override ?? row.activities?.cost ?? 0
-          totals.set(category, (totals.get(category) ?? 0) + cost)
+        cached.days.forEach((day) => {
+          day.activities.forEach((activity) => {
+            const category = activity.category || 'Other'
+            totals.set(category, (totals.get(category) ?? 0) + (activity.estimated_cost || 0))
+          })
         })
-        setCostsByCategory(Array.from(totals, ([category, cost]) => ({ category, cost })))
+        setCostsByCategory(Array.from(totals, ([category, cost]) => ({ category, cost })).sort((a, b) => b.cost - a.cost))
       }
 
       setLoading(false)
@@ -118,7 +114,17 @@ export default function TripBudget() {
           <h2 className="text-lg font-semibold text-slate-900">Cost by category</h2>
           {costsByCategory.length === 0 ? (
             <p className="mt-3 text-sm text-slate-500">
-              No costed activities yet. Add activities to this trip's itinerary to see a breakdown here.
+              {hasItinerary
+                ? "This itinerary's activities don't have cost estimates yet."
+                : (
+                  <>
+                    No itinerary yet.{' '}
+                    <Link to={`/trips/${trip.id}/generate`} className="font-medium text-slate-700 underline">
+                      Generate one with AI
+                    </Link>{' '}
+                    to see a cost breakdown here.
+                  </>
+                )}
             </p>
           ) : (
             <div className="mt-4 space-y-3">

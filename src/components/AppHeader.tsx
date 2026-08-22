@@ -1,14 +1,30 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import { NotificationsMenu } from './NotificationsMenu'
 import { CurrencySelect } from './CurrencySelect'
 
-export function AppHeader() {
+interface AppHeaderProps {
+  /** Set when the header sits directly on top of a photo (currently just the Dashboard hero) — everywhere else it should stay plain so the wordmark stays readable against a plain page background. */
+  overHero?: boolean
+}
+
+export function AppHeader({ overHero = false }: AppHeaderProps) {
   const navigate = useNavigate()
   const { session } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    if (!session) return
+    supabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', session.user.id)
+      .single()
+      .then(({ data }) => setIsAdmin(Boolean(data?.is_admin)))
+  }, [session])
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -18,9 +34,12 @@ export function AppHeader() {
   const name = (session?.user.user_metadata?.full_name as string | undefined) || session?.user.email
 
   return (
-    <header className="relative z-20 bg-transparent">
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
-        <Link to="/dashboard" className="font-display text-lg font-semibold text-slate-900">
+    <header className={`relative z-20 ${overHero ? 'bg-slate-900/10 backdrop-blur-sm' : 'bg-transparent'}`}>
+      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-2.5 sm:px-6">
+        <Link
+          to="/dashboard"
+          className={`font-display text-lg font-bold ${overHero ? 'text-white' : 'text-slate-900'}`}
+        >
           GlobeTrotter
         </Link>
 
@@ -50,15 +69,17 @@ export function AppHeader() {
                     onClick={() => setMenuOpen(false)}
                     className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
                   >
-                    Profile
-                  </Link>
-                  <Link
-                    to="/settings"
-                    onClick={() => setMenuOpen(false)}
-                    className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                  >
                     Settings
                   </Link>
+                  {isAdmin && (
+                    <Link
+                      to="/admin"
+                      onClick={() => setMenuOpen(false)}
+                      className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      Admin
+                    </Link>
+                  )}
                   <button
                     onClick={handleLogout}
                     className="block w-full border-t border-slate-100 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"

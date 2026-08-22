@@ -10,6 +10,7 @@ export interface Trip {
   status: string
   budget: number | null
   trip_vibe: string | null
+  travelers: number | null
   created_at: string
 }
 
@@ -18,6 +19,37 @@ export interface Profile {
   full_name: string | null
   avatar_url: string | null
   language: string
+  bio: string | null
+  default_public: boolean
+  is_admin: boolean
+  created_at: string
+}
+
+export interface ActivityReview {
+  id: string
+  user_id: string
+  activity_key: string
+  activity_name: string
+  city: string
+  rating: number
+  comment: string | null
+  created_at: string
+}
+
+export interface SavedCity {
+  id: string
+  user_id: string
+  city_name: string
+  city_state: string | null
+  city_country: string | null
+  image_url: string | null
+  created_at: string
+}
+
+export interface FavoriteActivity {
+  id: string
+  user_id: string
+  activity_id: string
   created_at: string
 }
 

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { AppHeader } from '../components/AppHeader'
+import { useAuth } from '../context/AuthContext'
+import { listFavoriteActivities, favoriteActivity, unfavoriteActivity } from '../lib/favoriteActivities'
 
 interface ActivityRow {
   id: string
@@ -15,11 +17,44 @@ interface ActivityRow {
 const CATEGORIES = ['Sightseeing', 'Culture', 'Food', 'Adventure', 'Relaxation', 'Beach', 'Nightlife']
 
 export default function ActivitySearch() {
+  const { session } = useAuth()
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
   const [maxCost, setMaxCost] = useState('')
   const [activities, setActivities] = useState<ActivityRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [favorites, setFavorites] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    if (!session) return
+    listFavoriteActivities(session.user.id).then((rows) => {
+      const map: Record<string, string> = {}
+      rows.forEach((r) => {
+        map[r.activity_id] = r.id
+      })
+      setFavorites(map)
+    })
+  }, [session])
+
+  async function handleToggleFavorite(activityId: string) {
+    if (!session) return
+    const existingFavoriteId = favorites[activityId]
+    if (existingFavoriteId) {
+      setFavorites((prev) => {
+        const next = { ...prev }
+        delete next[activityId]
+        return next
+      })
+      await unfavoriteActivity(existingFavoriteId)
+    } else {
+      const { error } = await favoriteActivity(session.user.id, activityId)
+      if (!error) {
+        const rows = await listFavoriteActivities(session.user.id)
+        const match = rows.find((r) => r.activity_id === activityId)
+        if (match) setFavorites((prev) => ({ ...prev, [activityId]: match.id }))
+      }
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -88,8 +123,31 @@ export default function ActivitySearch() {
         ) : (
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {activities.map((activity) => (
-              <div key={activity.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex items-start justify-between gap-2">
+              <div key={activity.id} className="relative rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                {session && (
+                  <button
+                    type="button"
+                    onClick={() => handleToggleFavorite(activity.id)}
+                    aria-label={favorites[activity.id] ? 'Remove from favourites' : 'Add to favourites'}
+                    className="absolute right-3 top-3 text-slate-300 transition hover:text-red-500"
+                  >
+                    <svg
+                      className="h-5 w-5"
+                      viewBox="0 0 24 24"
+                      fill={favorites[activity.id] ? 'currentColor' : 'none'}
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      style={favorites[activity.id] ? { color: '#ef4444' } : undefined}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 21s-7-6.1-7-11.5A7 7 0 0112 3a7 7 0 017 6.5C19 14.9 12 21 12 21z"
+                      />
+                    </svg>
+                  </button>
+                )}
+                <div className="flex items-start justify-between gap-2 pr-8">
                   <p className="font-medium text-slate-900">{activity.name}</p>
                   {activity.category && (
                     <span className="flex-shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">
