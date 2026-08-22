@@ -47,11 +47,13 @@ function CityCard({ city }: { city: City }) {
 export default function Dashboard() {
   const { session } = useAuth()
   const [trips, setTrips] = useState<Trip[]>([])
-  const [cities, setCities] = useState<City[]>([])
+  const [indiaCities, setIndiaCities] = useState<City[]>([])
+  const [internationalCities, setInternationalCities] = useState<City[]>([])
   const [loading, setLoading] = useState(true)
 
   const [search, setSearch] = useState('')
   const [searchFocused, setSearchFocused] = useState(false)
+  const [suggestions, setSuggestions] = useState<City[]>([])
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [persons, setPersons] = useState('')
@@ -61,30 +63,50 @@ export default function Dashboard() {
     if (!session) return
 
     async function loadDashboard() {
-      const [tripsRes, citiesRes] = await Promise.all([
+      const [tripsRes, indiaRes, intlRes] = await Promise.all([
         supabase
           .from('trips')
           .select('*')
           .eq('user_id', session!.user.id)
           .order('created_at', { ascending: false }),
-        supabase.from('cities').select('*').order('popularity', { ascending: false }),
+        supabase.from('cities').select('*').eq('country', 'India').order('popularity', { ascending: false }).limit(8),
+        supabase.from('cities').select('*').neq('country', 'India').order('popularity', { ascending: false }).limit(8),
       ])
 
       if (tripsRes.data) setTrips(tripsRes.data)
-      if (citiesRes.data) setCities(citiesRes.data)
+      if (indiaRes.data) setIndiaCities(indiaRes.data)
+      if (intlRes.data) setInternationalCities(intlRes.data)
       setLoading(false)
     }
 
     loadDashboard()
   }, [session])
 
-  const query = search.trim().toLowerCase()
-  const matchesSearch = (city: City) =>
-    !query || city.name.toLowerCase().includes(query) || city.country.toLowerCase().includes(query)
+  // Live search against the full world-cities table (server-side — there are
+  // ~90k rows, far too many to ever load into the browser).
+  useEffect(() => {
+    const query = search.trim()
+    if (query.length < 2) {
+      setSuggestions([])
+      return
+    }
 
-  const indiaCities = cities.filter((c) => c.country === 'India' && matchesSearch(c))
-  const internationalCities = cities.filter((c) => c.country !== 'India' && matchesSearch(c))
-  const suggestions = query ? cities.filter(matchesSearch).slice(0, 6) : []
+    let cancelled = false
+    const timeout = setTimeout(async () => {
+      const { data } = await supabase
+        .from('cities')
+        .select('*')
+        .ilike('name', `%${query}%`)
+        .order('popularity', { ascending: false })
+        .limit(6)
+      if (!cancelled && data) setSuggestions(data)
+    }, 250)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timeout)
+    }
+  }, [search])
 
   return (
     <div className="min-h-svh bg-slate-50">
@@ -190,7 +212,7 @@ export default function Dashboard() {
           {loading ? (
             <p className="mt-3 text-sm text-slate-500">Loading…</p>
           ) : indiaCities.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-500">No matching cities.</p>
+            <p className="mt-3 text-sm text-slate-500">No cities yet.</p>
           ) : (
             <div className="mt-3 flex gap-4 overflow-x-auto pb-2">
               {indiaCities.map((city) => (
@@ -205,7 +227,7 @@ export default function Dashboard() {
           {loading ? (
             <p className="mt-3 text-sm text-slate-500">Loading…</p>
           ) : internationalCities.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-500">No matching cities.</p>
+            <p className="mt-3 text-sm text-slate-500">No cities yet.</p>
           ) : (
             <div className="mt-3 flex gap-4 overflow-x-auto pb-2">
               {internationalCities.map((city) => (
