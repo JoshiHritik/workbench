@@ -8,6 +8,16 @@ export interface Trip {
   cover_photo_url: string | null
   is_public: boolean
   status: string
+  budget: number | null
+  trip_vibe: string | null
+  created_at: string
+}
+
+export interface Profile {
+  id: string
+  full_name: string | null
+  avatar_url: string | null
+  language: string
   created_at: string
 }
 
@@ -19,4 +29,13 @@ export interface City {
   cost_index: number | null
   popularity: number
   image_url: string | null
+}
+
+export interface TripStop {
+  id: string
+  trip_id: string
+  city_id: string
+  arrival_date: string | null
+  departure_date: string | null
+  order_index: number
 }

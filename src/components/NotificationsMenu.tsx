@@ -10,11 +10,29 @@ interface Notification {
   tripId: string
 }
 
+function seenStorageKey(userId: string) {
+  return `globetrotter_seen_notifications_${userId}`
+}
+
+function loadSeenIds(userId: string): Set<string> {
+  try {
+    const raw = localStorage.getItem(seenStorageKey(userId))
+    return raw ? new Set(JSON.parse(raw)) : new Set()
+  } catch {
+    return new Set()
+  }
+}
+
+function saveSeenIds(userId: string, ids: Set<string>) {
+  localStorage.setItem(seenStorageKey(userId), JSON.stringify(Array.from(ids)))
+}
+
 export function NotificationsMenu() {
   const { session } = useAuth()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const [unseenCount, setUnseenCount] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -55,16 +73,29 @@ export function NotificationsMenu() {
         }
       })
       setNotifications(items)
+
+      const seenIds = loadSeenIds(session!.user.id)
+      setUnseenCount(items.filter((n) => !seenIds.has(n.id)).length)
     }
 
     load()
   }, [session])
 
+  function handleToggle() {
+    setOpen((v) => !v)
+    if (session && notifications.length > 0) {
+      const seenIds = loadSeenIds(session.user.id)
+      notifications.forEach((n) => seenIds.add(n.id))
+      saveSeenIds(session.user.id, seenIds)
+      setUnseenCount(0)
+    }
+  }
+
   return (
     <div className="relative" ref={containerRef}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={handleToggle}
         aria-label="Notifications"
         className="relative flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 bg-white/80 text-slate-600 backdrop-blur-sm transition hover:bg-white"
       >
@@ -75,9 +106,9 @@ export function NotificationsMenu() {
             d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m6 0a3 3 0 11-6 0m6 0H9"
           />
         </svg>
-        {notifications.length > 0 && (
+        {unseenCount > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
-            {notifications.length}
+            {unseenCount}
           </span>
         )}
       </button>

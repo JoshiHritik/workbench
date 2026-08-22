@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { DropdownPortal } from './DropdownPortal'
 
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
 
@@ -51,16 +52,19 @@ export function DateRangePicker({ startDate, endDate, onChange }: DateRangePicke
     return new Date(base.getFullYear(), base.getMonth(), 1)
   })
   const containerRef = useRef<HTMLDivElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    if (!open) return
     function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      if (!containerRef.current?.contains(target) && !dropdownRef.current?.contains(target)) {
         setOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  }, [open])
 
   function handleDayClick(iso: string) {
     if (!startDate || (startDate && endDate)) {
@@ -82,7 +86,6 @@ export function DateRangePicker({ startDate, endDate, onChange }: DateRangePicke
   ]
 
   const label = startDate ? `${formatDisplay(startDate)}${endDate ? ` - ${formatDisplay(endDate)}` : ''}` : 'Add dates'
-  const today = toISO(new Date())
   const presets = buildPresets()
 
   function applyPreset(start: string, end: string) {
@@ -102,7 +105,8 @@ export function DateRangePicker({ startDate, endDate, onChange }: DateRangePicke
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-30 mt-2 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-lg">
+        <DropdownPortal anchorRef={containerRef}>
+        <div ref={dropdownRef} className="w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-lg">
           <div className="flex flex-wrap gap-2">
             {presets.map((preset) => (
               <button
@@ -153,7 +157,6 @@ export function DateRangePicker({ startDate, endDate, onChange }: DateRangePicke
               if (!iso) return <div key={idx} />
               const isEdge = iso === startDate || iso === endDate
               const inRange = Boolean(startDate && endDate && iso > startDate && iso < endDate)
-              const isToday = iso === today
               return (
                 <button
                   key={iso}
@@ -165,7 +168,7 @@ export function DateRangePicker({ startDate, endDate, onChange }: DateRangePicke
                       : inRange
                         ? 'bg-slate-100 text-slate-900'
                         : 'text-slate-700 hover:bg-slate-100'
-                  } ${isToday && !isEdge ? 'ring-1 ring-inset ring-slate-400' : ''}`}
+                  }`}
                 >
                   {Number(iso.slice(-2))}
                 </button>
@@ -190,6 +193,7 @@ export function DateRangePicker({ startDate, endDate, onChange }: DateRangePicke
             </button>
           </div>
         </div>
+        </DropdownPortal>
       )}
     </div>
   )

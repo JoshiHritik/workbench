@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext'
 import { AppHeader } from '../components/AppHeader'
 import { DateRangePicker } from '../components/DateRangePicker'
 import { TripTypeSelect } from '../components/TripTypeSelect'
+import { DropdownPortal } from '../components/DropdownPortal'
+import { searchCities } from '../lib/citySearch'
 import type { City, Trip } from '../lib/types'
 
 const HERO_IMAGE_URL =
@@ -29,10 +31,17 @@ function CityThumbnail({ city, className }: { city: City; className: string }) {
   )
 }
 
-function CityCard({ city }: { city: City }) {
+function CityCard({ city, onClick }: { city: City; onClick: (city: City) => void }) {
   return (
-    <div className="relative h-64 w-52 flex-shrink-0 overflow-hidden rounded-2xl shadow-md">
-      <CityThumbnail city={city} className="absolute inset-0 h-full w-full" />
+    <button
+      type="button"
+      onClick={() => onClick(city)}
+      className="group relative h-64 w-52 flex-shrink-0 overflow-hidden rounded-2xl text-left shadow-md transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-xl"
+    >
+      <CityThumbnail
+        city={city}
+        className="absolute inset-0 h-full w-full scale-100 transition-transform duration-300 ease-out group-hover:scale-110"
+      />
       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
       <div className="absolute inset-x-0 bottom-0 p-4">
         <p className="text-xl font-bold leading-tight text-white">{city.name}</p>
@@ -41,7 +50,7 @@ function CityCard({ city }: { city: City }) {
           {city.country}
         </p>
       </div>
-    </div>
+    </button>
   )
 }
 
@@ -69,7 +78,7 @@ function ScrollArrow({ direction, onClick }: { direction: 'left' | 'right'; onCl
   )
 }
 
-function CityCardRow({ cities }: { cities: City[] }) {
+function CityCardRow({ cities, onSelectCity }: { cities: City[]; onSelectCity: (city: City) => void }) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   function scroll(direction: 'left' | 'right') {
@@ -82,7 +91,7 @@ function CityCardRow({ cities }: { cities: City[] }) {
       <div className="pointer-events-none absolute inset-y-0 left-0 z-[5] w-10 bg-gradient-to-r from-slate-50 to-transparent" />
       <div ref={scrollRef} className="scrollbar-none flex gap-5 overflow-x-auto scroll-smooth px-1 pb-2">
         {cities.map((city) => (
-          <CityCard key={city.id} city={city} />
+          <CityCard key={city.id} city={city} onClick={onSelectCity} />
         ))}
       </div>
       <div className="pointer-events-none absolute inset-y-0 right-0 z-[5] w-10 bg-gradient-to-l from-slate-50 to-transparent" />
@@ -246,6 +255,7 @@ export default function Dashboard() {
   const [featuredCities, setFeaturedCities] = useState<City[]>([])
   const [loading, setLoading] = useState(true)
 
+  const searchAnchorRef = useRef<HTMLDivElement>(null)
   const [search, setSearch] = useState('')
   const [searchFocused, setSearchFocused] = useState(false)
   const [suggestions, setSuggestions] = useState<City[]>([])
@@ -342,11 +352,33 @@ export default function Dashboard() {
     alert('Share link copied to clipboard.')
   }
 
+  function buildCreateTripUrl() {
+    const params = new URLSearchParams()
+    if (search.trim()) params.set('destination', search.trim())
+    if (fromDate) params.set('start', fromDate)
+    if (toDate) params.set('end', toDate)
+    const query = params.toString()
+    return query ? `/create-trip?${query}` : '/create-trip'
+  }
+
+  // With a destination typed in, "Search" takes the user to that city's page
+  // first (things to do, a real map) rather than straight into trip creation.
+  // With nothing typed, there's no city to explore, so it falls back to
+  // starting a blank trip — same as before.
+  function buildSearchUrl() {
+    if (!search.trim()) return buildCreateTripUrl()
+    const params = new URLSearchParams()
+    params.set('name', search.trim())
+    if (fromDate) params.set('start', fromDate)
+    if (toDate) params.set('end', toDate)
+    return `/cities?${params.toString()}`
+  }
+
   function handleQuickAction(key: string) {
     const firstTripId = trips[0]?.id
     switch (key) {
       case 'plan':
-        navigate('/create-trip')
+        navigate(buildCreateTripUrl())
         break
       case 'city':
         navigate('/cities')
@@ -378,13 +410,8 @@ export default function Dashboard() {
 
     let cancelled = false
     const timeout = setTimeout(async () => {
-      const { data } = await supabase
-        .from('cities')
-        .select('*')
-        .ilike('name', `%${query}%`)
-        .order('popularity', { ascending: false })
-        .limit(6)
-      if (!cancelled && data) setSuggestions(data)
+      const results = await searchCities(query)
+      if (!cancelled) setSuggestions(results)
     }, 250)
 
     return () => {
@@ -408,19 +435,23 @@ export default function Dashboard() {
   return (
     <div className="min-h-svh bg-slate-50">
       <div className="relative isolate flex h-[75svh] flex-col">
-        <div className="absolute inset-0 -z-10">
-          <img src={HERO_IMAGE_URL} alt="" className="h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-white/35" />
+        <div className="absolute inset-0 -z-10 overflow-hidden">
+          <img src={HERO_IMAGE_URL} alt="" className="h-full w-full scale-105 object-cover blur-[2px]" />
           <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-slate-50" />
         </div>
 
         <AppHeader />
 
-        <div className="flex flex-1 items-center">
-          <div className="mx-auto w-full max-w-5xl px-4 sm:px-6">
+        <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 px-4 sm:px-6">
+          <div className="text-center text-white drop-shadow-md">
+            <h1 className="text-3xl font-bold sm:text-4xl">Where to next?</h1>
+            <p className="mt-2 text-sm text-white/90">Search 90,000+ cities worldwide</p>
+          </div>
+
+          <div className="mx-auto w-full max-w-5xl">
             <div className="rounded-2xl border border-slate-200 bg-white/95 p-10 shadow-lg backdrop-blur-sm">
               <div className="flex flex-col gap-3 sm:flex-row">
-                <div className="relative w-full flex-1">
+                <div className="relative w-full flex-1" ref={searchAnchorRef}>
                   <input
                     type="text"
                     value={search}
@@ -431,32 +462,34 @@ export default function Dashboard() {
                     className="w-full rounded-[50px] border border-slate-300 px-5 py-3.5 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
                   />
                   {searchFocused && suggestions.length > 0 && (
-                    <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
-                      {suggestions.map((city) => (
-                        <button
-                          key={city.id}
-                          type="button"
-                          onMouseDown={() => setSearch(city.name)}
-                          className="flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-slate-50"
-                        >
-                          <CityThumbnail city={city} className="h-12 w-12 flex-shrink-0 rounded-lg" />
-                          <div>
-                            <p className="font-medium text-slate-900">{city.name}</p>
-                            <p className="text-xs text-slate-500">
-                              {city.state ? `${city.state}, ` : ''}
-                              {city.country}
-                            </p>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
+                    <DropdownPortal anchorRef={searchAnchorRef}>
+                      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
+                        {suggestions.map((city) => (
+                          <button
+                            key={city.id}
+                            type="button"
+                            onMouseDown={() => setSearch(city.name)}
+                            className="flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-slate-50"
+                          >
+                            <CityThumbnail city={city} className="h-12 w-12 flex-shrink-0 rounded-lg" />
+                            <div>
+                              <p className="font-medium text-slate-900">{city.name}</p>
+                              <p className="text-xs text-slate-500">
+                                {city.state ? `${city.state}, ` : ''}
+                                {city.country}
+                              </p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </DropdownPortal>
                   )}
                 </div>
                 <Link
-                  to="/create-trip"
+                  to={buildSearchUrl()}
                   className="flex flex-shrink-0 items-center justify-center rounded-[50px] bg-slate-900 px-6 py-3.5 text-sm font-medium text-white transition hover:bg-slate-700"
                 >
-                  + Plan New Trip
+                  Search
                 </Link>
               </div>
 
@@ -488,7 +521,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <main className="mx-auto max-w-5xl px-4 pb-10 sm:px-6">
+      <main className="mx-auto max-w-5xl px-4 pb-10 pt-10 sm:px-6">
         {!loading && trips.length > 0 && (
           <section>
             <h2 className="text-lg font-semibold text-slate-900">Trip summary</h2>
@@ -527,7 +560,15 @@ export default function Dashboard() {
             <p className="mt-3 text-sm text-slate-500">No cities yet.</p>
           ) : (
             <div className="mt-3">
-              <CityCardRow cities={featuredCities} />
+              <CityCardRow
+                cities={featuredCities}
+                onSelectCity={(city) => {
+                  const params = new URLSearchParams({ name: city.name })
+                  if (fromDate) params.set('start', fromDate)
+                  if (toDate) params.set('end', toDate)
+                  navigate(`/cities?${params.toString()}`)
+                }}
+              />
             </div>
           )}
         </section>

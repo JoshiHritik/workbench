@@ -1,14 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { DropdownPortal } from './DropdownPortal'
 
-const OPTIONS = ['Friendly', 'Couple', 'Family', 'Solo']
+const OPTIONS = [
+  { value: 'en', label: 'English' },
+  { value: 'hi', label: 'Hindi' },
+  { value: 'es', label: 'Spanish' },
+  { value: 'fr', label: 'French' },
+]
 
-interface TripTypeSelectProps {
+interface LanguageSelectProps {
   value: string
   onChange: (value: string) => void
 }
 
-export function TripTypeSelect({ value, onChange }: TripTypeSelectProps) {
+export function LanguageSelect({ value, onChange }: LanguageSelectProps) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -25,21 +30,23 @@ export function TripTypeSelect({ value, onChange }: TripTypeSelectProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [open])
 
-  function select(option: string) {
-    onChange(option)
+  function select(optionValue: string) {
+    onChange(optionValue)
     setOpen(false)
   }
+
+  const selectedLabel = OPTIONS.find((o) => o.value === value)?.label ?? 'English'
 
   return (
     <div className="relative w-full" ref={containerRef}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between rounded-[50px] border border-slate-300 px-5 py-3.5 text-left text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+        className="flex w-full items-center justify-between rounded-[50px] border border-slate-300 px-5 py-3 text-left text-sm text-slate-700 outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
       >
-        <span className={value ? 'text-slate-700' : 'text-slate-400'}>{value || 'Trip type'}</span>
+        <span>{selectedLabel}</span>
         <svg
-          className={`h-4 w-4 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`h-4 w-4 flex-shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -55,25 +62,16 @@ export function TripTypeSelect({ value, onChange }: TripTypeSelectProps) {
             ref={dropdownRef}
             className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 shadow-lg"
           >
-            <button
-              type="button"
-              onClick={() => select('')}
-              className={`block w-full px-5 py-2 text-left text-sm hover:bg-slate-50 ${
-                !value ? 'font-medium text-slate-900' : 'text-slate-500'
-              }`}
-            >
-              Any
-            </button>
             {OPTIONS.map((option) => (
               <button
-                key={option}
+                key={option.value}
                 type="button"
-                onClick={() => select(option)}
+                onClick={() => select(option.value)}
                 className={`block w-full px-5 py-2 text-left text-sm hover:bg-slate-50 ${
-                  value === option ? 'font-medium text-slate-900' : 'text-slate-700'
+                  value === option.value ? 'font-medium text-slate-900' : 'text-slate-700'
                 }`}
               >
-                {option}
+                {option.label}
               </button>
             ))}
           </div>

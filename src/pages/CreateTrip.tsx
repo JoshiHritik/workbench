@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import { AppHeader } from '../components/AppHeader'
 import { DateRangePicker } from '../components/DateRangePicker'
+import { TripVibeSelect } from '../components/TripVibeSelect'
 
 const MAX_COVER_PHOTO_BYTES = 5 * 1024 * 1024
 
@@ -12,13 +13,31 @@ const inputClass =
 
 type SaveStatus = 'draft' | 'active'
 
+// Fallback cover photo when the user doesn't upload one, picked by trip vibe.
+const VIBE_FALLBACK_IMAGES: Record<string, string> = {
+  Adventure: 'https://images.unsplash.com/photo-1551632811-561732d1e306?auto=format&fit=crop&w=800&q=70',
+  Relaxing: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=70',
+  Cultural: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?auto=format&fit=crop&w=800&q=70',
+  Beach: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?auto=format&fit=crop&w=800&q=70',
+  Romantic: 'https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&w=800&q=70',
+  Family: 'https://images.unsplash.com/photo-1476234251651-f353703a034d?auto=format&fit=crop&w=800&q=70',
+}
+const DEFAULT_FALLBACK_IMAGE =
+  'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=800&q=70'
+
 export default function CreateTrip() {
   const navigate = useNavigate()
   const { session } = useAuth()
-  const [name, setName] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const [searchParams] = useSearchParams()
+  const [name, setName] = useState(() => {
+    const destination = searchParams.get('destination')
+    return destination ? `${destination} Trip` : ''
+  })
+  const [startDate, setStartDate] = useState(() => searchParams.get('start') ?? '')
+  const [endDate, setEndDate] = useState(() => searchParams.get('end') ?? '')
   const [description, setDescription] = useState('')
+  const [budget, setBudget] = useState('')
+  const [tripVibe, setTripVibe] = useState('')
   const [coverPhoto, setCoverPhoto] = useState<File | null>(null)
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null)
   const [isPublic, setIsPublic] = useState(false)
@@ -37,7 +56,7 @@ export default function CreateTrip() {
   }, [coverPhoto])
 
   const isDirty = Boolean(
-    name || startDate || endDate || description || coverPhoto || isPublic,
+    name || startDate || endDate || description || budget || tripVibe || coverPhoto || isPublic,
   )
 
   function validate(): string | null {
@@ -96,6 +115,8 @@ export default function CreateTrip() {
         return
       }
       coverPhotoUrl = supabase.storage.from('trip-covers').getPublicUrl(path).data.publicUrl
+    } else {
+      coverPhotoUrl = VIBE_FALLBACK_IMAGES[tripVibe] ?? DEFAULT_FALLBACK_IMAGE
     }
 
     const { data, error: insertError } = await supabase
@@ -106,6 +127,8 @@ export default function CreateTrip() {
         start_date: startDate,
         end_date: endDate,
         description: description.trim() || null,
+        budget: budget ? Number(budget) : null,
+        trip_vibe: tripVibe || null,
         cover_photo_url: coverPhotoUrl,
         is_public: isPublic,
         status,
@@ -189,6 +212,32 @@ export default function CreateTrip() {
               className="w-full rounded-2xl border border-slate-300 px-5 py-3 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
               placeholder="What's this trip about?"
             />
+          </div>
+
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label htmlFor="budget" className="mb-1 block text-sm font-medium text-slate-700">
+                Budget <span className="font-normal text-slate-400">(optional)</span>
+              </label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                  ₹
+                </span>
+                <input
+                  id="budget"
+                  type="number"
+                  min={0}
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                  className={`${inputClass} pl-8`}
+                  placeholder="e.g. 10,000"
+                />
+              </div>
+            </div>
+            <div className="flex-1">
+              <label className="mb-1 block text-sm font-medium text-slate-700">Trip vibe</label>
+              <TripVibeSelect value={tripVibe} onChange={setTripVibe} />
+            </div>
           </div>
 
           <div>

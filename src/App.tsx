@@ -6,6 +6,7 @@ import UpdatePassword from './pages/UpdatePassword'
 import Dashboard from './pages/Dashboard'
 import CreateTrip from './pages/CreateTrip'
 import TripDetail from './pages/TripDetail'
+import GenerateItinerary from './pages/GenerateItinerary'
 import Settings from './pages/Settings'
 import CitySearch from './pages/CitySearch'
 import ActivitySearch from './pages/ActivitySearch'
@@ -51,6 +52,14 @@ function App() {
         element={
           <ProtectedRoute>
             <TripDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/trips/:tripId/generate"
+        element={
+          <ProtectedRoute>
+            <GenerateItinerary />
           </ProtectedRoute>
         }
       />

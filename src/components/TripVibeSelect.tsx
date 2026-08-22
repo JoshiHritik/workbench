@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { DropdownPortal } from './DropdownPortal'
 
-const OPTIONS = ['Friendly', 'Couple', 'Family', 'Solo']
+const OPTIONS = ['Adventure', 'Relaxing', 'Cultural', 'Beach', 'Romantic', 'Family']
 
-interface TripTypeSelectProps {
+interface TripVibeSelectProps {
   value: string
   onChange: (value: string) => void
 }
 
-export function TripTypeSelect({ value, onChange }: TripTypeSelectProps) {
+export function TripVibeSelect({ value, onChange }: TripVibeSelectProps) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -37,7 +37,7 @@ export function TripTypeSelect({ value, onChange }: TripTypeSelectProps) {
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between rounded-[50px] border border-slate-300 px-5 py-3.5 text-left text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
       >
-        <span className={value ? 'text-slate-700' : 'text-slate-400'}>{value || 'Trip type'}</span>
+        <span className={value ? 'text-slate-700' : 'text-slate-400'}>{value || 'Trip vibe'}</span>
         <svg
           className={`h-4 w-4 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
           viewBox="0 0 24 24"
