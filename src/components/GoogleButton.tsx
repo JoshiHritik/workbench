@@ -12,7 +12,7 @@ export function GoogleButton() {
     <button
       type="button"
       onClick={handleGoogleLogin}
-      className="flex w-full items-center justify-center gap-2 rounded-[50px] border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+      className="flex w-full appearance-none items-center justify-center gap-2 rounded-[50px] border border-slate-300 bg-white px-5 py-3.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
     >
       <svg className="h-4 w-4" viewBox="0 0 48 48" aria-hidden="true">
         <path
