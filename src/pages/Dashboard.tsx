@@ -7,6 +7,9 @@ import type { City, Trip } from '../lib/types'
 
 const TRIP_TYPES = ['Friendly', 'Couple', 'Family', 'Solo']
 
+const HERO_IMAGE_URL =
+  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=2000&q=80'
+
 function formatDateRange(start: string | null, end: string | null) {
   if (!start || !end) return 'Dates not set'
   const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
@@ -31,7 +34,7 @@ export default function Dashboard() {
   const [search, setSearch] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
-  const [budget, setBudget] = useState('')
+  const [persons, setPersons] = useState('')
   const [tripType, setTripType] = useState('')
 
   useEffect(() => {
@@ -64,74 +67,79 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-svh bg-slate-50">
-      <AppHeader />
-
-      <main className="mx-auto max-w-5xl px-4 pb-10 sm:px-6">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search destinations…"
-              className="w-full flex-1 rounded-[50px] border border-slate-300 px-5 py-3.5 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
-            />
-            <Link
-              to="/create-trip"
-              className="flex flex-shrink-0 items-center justify-center rounded-[50px] bg-slate-900 px-6 py-3.5 text-sm font-medium text-white transition hover:bg-slate-700"
-            >
-              + Plan New Trip
-            </Link>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-3">
-            <div className="flex items-center gap-2">
-              <label htmlFor="fromDate" className="text-xs font-medium text-slate-500">
-                From
-              </label>
-              <input
-                id="fromDate"
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="rounded-[50px] border border-slate-300 px-4 py-2 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <label htmlFor="toDate" className="text-xs font-medium text-slate-500">
-                To
-              </label>
-              <input
-                id="toDate"
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="rounded-[50px] border border-slate-300 px-4 py-2 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
-              />
-            </div>
-            <input
-              type="number"
-              value={budget}
-              onChange={(e) => setBudget(e.target.value)}
-              placeholder="Budget"
-              className="w-32 rounded-[50px] border border-slate-300 px-4 py-2 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
-            />
-            <select
-              value={tripType}
-              onChange={(e) => setTripType(e.target.value)}
-              className="rounded-[50px] border border-slate-300 px-4 py-2 text-sm text-slate-700 outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
-            >
-              <option value="">Trip type</option>
-              {TRIP_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </div>
+      <div className="relative isolate flex min-h-svh flex-col overflow-hidden">
+        <div className="absolute inset-0 -z-10">
+          <img src={HERO_IMAGE_URL} alt="" className="h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-white/55" />
         </div>
 
-        <section className="mt-8">
+        <AppHeader />
+
+        <div className="flex flex-1 items-center">
+          <div className="mx-auto w-full max-w-5xl px-4 sm:px-6">
+            <div className="rounded-2xl border border-slate-200 bg-white/95 p-8 shadow-lg backdrop-blur-sm">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search destinations…"
+                  className="w-full flex-1 rounded-[50px] border border-slate-300 px-5 py-3.5 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+                />
+                <Link
+                  to="/create-trip"
+                  className="flex flex-shrink-0 items-center justify-center rounded-[50px] bg-slate-900 px-6 py-3.5 text-sm font-medium text-white transition hover:bg-slate-700"
+                >
+                  + Plan New Trip
+                </Link>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 rounded-[50px] border border-slate-300 px-2">
+                  <input
+                    aria-label="From date"
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    className="rounded-[50px] px-2 py-2 text-sm outline-none"
+                  />
+                  <span className="text-slate-400">-</span>
+                  <input
+                    aria-label="To date"
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    className="rounded-[50px] px-2 py-2 text-sm outline-none"
+                  />
+                </div>
+                <input
+                  type="number"
+                  min={1}
+                  value={persons}
+                  onChange={(e) => setPersons(e.target.value)}
+                  placeholder="Persons"
+                  className="w-28 rounded-[50px] border border-slate-300 px-4 py-2 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+                />
+                <select
+                  value={tripType}
+                  onChange={(e) => setTripType(e.target.value)}
+                  className="rounded-[50px] border border-slate-300 px-4 py-2 text-sm text-slate-700 outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+                >
+                  <option value="">Trip type</option>
+                  {TRIP_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <main className="mx-auto max-w-5xl px-4 pb-10 pt-8 sm:px-6">
+        <section>
           <h2 className="text-lg font-semibold text-slate-900">Popular in India</h2>
           {loading ? (
             <p className="mt-3 text-sm text-slate-500">Loading…</p>
