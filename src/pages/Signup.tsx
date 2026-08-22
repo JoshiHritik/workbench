@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { AuthLayout } from '../components/AuthLayout'
 import { GoogleButton } from '../components/GoogleButton'
+import { PasswordInput } from '../components/PasswordInput'
 
 export default function Signup() {
   const navigate = useNavigate()
@@ -13,6 +14,9 @@ export default function Signup() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  const showMismatch =
+    confirmPassword.length > 0 && confirmPassword.length >= password.length && password !== confirmPassword
 
   function validate(): string | null {
     if (!name.trim()) return 'Name is required.'
@@ -99,13 +103,11 @@ export default function Signup() {
             <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700">
               Password
             </label>
-            <input
+            <PasswordInput
               id="password"
-              type="password"
               autoComplete="new-password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-[50px] border border-slate-300 px-5 py-3.5 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+              onChange={setPassword}
               placeholder="••••••••"
             />
           </div>
@@ -114,15 +116,14 @@ export default function Signup() {
             <label htmlFor="confirmPassword" className="mb-1 block text-sm font-medium text-slate-700">
               Confirm Password
             </label>
-            <input
+            <PasswordInput
               id="confirmPassword"
-              type="password"
               autoComplete="new-password"
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full rounded-[50px] border border-slate-300 px-5 py-3.5 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+              onChange={setConfirmPassword}
               placeholder="••••••••"
             />
+            {showMismatch && <p className="mt-1 text-xs text-red-600">Passwords do not match.</p>}
           </div>
 
           {error && (

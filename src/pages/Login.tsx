@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { AuthLayout } from '../components/AuthLayout'
 import { GoogleButton } from '../components/GoogleButton'
+import { PasswordInput } from '../components/PasswordInput'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -37,7 +38,11 @@ export default function Login() {
     setLoading(false)
 
     if (signInError) {
-      setError(signInError.message)
+      if (signInError.message.toLowerCase().includes('invalid login credentials')) {
+        setError('Invalid credentials.')
+      } else {
+        setError(signInError.message)
+      }
       return
     }
 
@@ -77,13 +82,11 @@ export default function Login() {
                 Forgot password?
               </Link>
             </div>
-            <input
+            <PasswordInput
               id="password"
-              type="password"
               autoComplete="current-password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-[50px] border border-slate-300 px-5 py-3.5 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+              onChange={setPassword}
               placeholder="••••••••"
             />
           </div>
