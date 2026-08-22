@@ -499,53 +499,42 @@ export default function Dashboard() {
 
           <div className="mx-auto w-full max-w-5xl">
             <div className="rounded-2xl border border-slate-200 bg-white/95 p-10 shadow-lg backdrop-blur-sm">
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <div className="relative w-full flex-1" ref={searchAnchorRef}>
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    onFocus={() => setSearchFocused(true)}
-                    onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
-                    placeholder="Search destinations…"
-                    className="w-full rounded-[50px] border border-slate-300 px-5 py-3.5 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
-                  />
-                  {searchFocused && suggestions.length > 0 && (
-                    <DropdownPortal anchorRef={searchAnchorRef}>
-                      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
-                        {suggestions.map((city) => (
-                          <button
-                            key={city.id}
-                            type="button"
-                            onMouseDown={() => setSearch(city.name)}
-                            className="flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-slate-50"
-                          >
-                            <CityThumbnail city={city} className="h-12 w-12 flex-shrink-0 rounded-lg" />
-                            <div>
-                              <p className="font-medium text-slate-900">{city.name}</p>
-                              <p className="text-xs text-slate-500">
-                                {city.state ? `${city.state}, ` : ''}
-                                {city.country}
-                              </p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </DropdownPortal>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={handleSearchClick}
-                  className="flex flex-shrink-0 items-center justify-center rounded-[50px] bg-slate-900 px-6 py-3.5 text-sm font-medium text-white transition hover:bg-slate-700"
-                >
-                  Search
-                </button>
+              <div className="relative w-full" ref={searchAnchorRef}>
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onFocus={() => setSearchFocused(true)}
+                  onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
+                  placeholder="Search destinations…"
+                  className="w-full rounded-[50px] border border-slate-300 px-5 py-3.5 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+                />
+                {searchFocused && suggestions.length > 0 && (
+                  <DropdownPortal anchorRef={searchAnchorRef}>
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
+                      {suggestions.map((city) => (
+                        <button
+                          key={city.id}
+                          type="button"
+                          onMouseDown={() => setSearch(city.name)}
+                          className="flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-slate-50"
+                        >
+                          <CityThumbnail city={city} className="h-12 w-12 flex-shrink-0 rounded-lg" />
+                          <div>
+                            <p className="font-medium text-slate-900">{city.name}</p>
+                            <p className="text-xs text-slate-500">
+                              {city.state ? `${city.state}, ` : ''}
+                              {city.country}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </DropdownPortal>
+                )}
               </div>
 
-              {searchError && <p className="mt-3 text-sm text-red-600">{searchError}</p>}
-
-              <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-3 flex flex-col gap-3 sm:flex-row">
                 <div className="sm:flex-1">
                   <DateRangePicker
                     startDate={fromDate}
@@ -568,6 +557,16 @@ export default function Dashboard() {
                   <TripTypeSelect value={tripType} onChange={setTripType} />
                 </div>
               </div>
+
+              {searchError && <p className="mt-3 text-sm text-red-600">{searchError}</p>}
+
+              <button
+                type="button"
+                onClick={handleSearchClick}
+                className="mt-4 flex w-full flex-shrink-0 items-center justify-center rounded-[50px] bg-slate-900 px-6 py-3.5 text-sm font-medium text-white transition hover:bg-slate-700"
+              >
+                Search
+              </button>
             </div>
           </div>
         </div>
