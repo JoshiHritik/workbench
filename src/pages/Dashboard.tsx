@@ -6,11 +6,19 @@ import { AppHeader } from '../components/AppHeader'
 import { DateRangePicker } from '../components/DateRangePicker'
 import { TripTypeSelect } from '../components/TripTypeSelect'
 import { DropdownPortal } from '../components/DropdownPortal'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { searchCities } from '../lib/citySearch'
 import type { City, Trip } from '../lib/types'
 
-const HERO_IMAGE_URL =
-  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=2000&q=80'
+const HERO_IMAGES = [
+  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=2000&q=80',
+  'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=2000&q=80',
+  'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=2000&q=80',
+  'https://images.unsplash.com/photo-1500835556837-99ac94a94552?auto=format&fit=crop&w=2000&q=80',
+  'https://images.unsplash.com/photo-1476900164809-ff19b8ae5968?auto=format&fit=crop&w=2000&q=80',
+  'https://images.unsplash.com/photo-1493246507139-91e8fad9978e?auto=format&fit=crop&w=2000&q=80',
+  'https://images.unsplash.com/photo-1533104816931-20fa691ff6ca?auto=format&fit=crop&w=2000&q=80',
+]
 
 function formatDateRange(start: string | null, end: string | null) {
   if (!start || !end) return 'Dates not set'
@@ -254,6 +262,8 @@ export default function Dashboard() {
   const [stopCounts, setStopCounts] = useState<Record<string, number>>({})
   const [featuredCities, setFeaturedCities] = useState<City[]>([])
   const [loading, setLoading] = useState(true)
+  const [tripPendingDelete, setTripPendingDelete] = useState<Trip | null>(null)
+  const [heroImage] = useState(() => HERO_IMAGES[Math.floor(Math.random() * HERO_IMAGES.length)])
 
   const searchAnchorRef = useRef<HTMLDivElement>(null)
   const [search, setSearch] = useState('')
@@ -331,10 +341,15 @@ export default function Dashboard() {
     if (!error && data) setTrips((prev) => [data, ...prev])
   }
 
-  async function handleDeleteTrip(trip: Trip) {
-    if (!window.confirm(`Delete "${trip.name}"? This can't be undone.`)) return
-    const { error } = await supabase.from('trips').delete().eq('id', trip.id)
-    if (!error) setTrips((prev) => prev.filter((t) => t.id !== trip.id))
+  function handleDeleteTrip(trip: Trip) {
+    setTripPendingDelete(trip)
+  }
+
+  async function confirmDeleteTrip() {
+    if (!tripPendingDelete) return
+    const { error } = await supabase.from('trips').delete().eq('id', tripPendingDelete.id)
+    if (!error) setTrips((prev) => prev.filter((t) => t.id !== tripPendingDelete.id))
+    setTripPendingDelete(null)
   }
 
   async function handleShareTrip(trip: Trip) {
@@ -436,7 +451,7 @@ export default function Dashboard() {
     <div className="min-h-svh bg-slate-50">
       <div className="relative isolate flex h-[75svh] flex-col">
         <div className="absolute inset-0 -z-10 overflow-hidden">
-          <img src={HERO_IMAGE_URL} alt="" className="h-full w-full scale-105 object-cover blur-[2px]" />
+          <img src={heroImage} alt="" className="h-full w-full scale-105 object-cover blur-[2px]" />
           <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-slate-50" />
         </div>
 
@@ -654,6 +669,17 @@ export default function Dashboard() {
           </div>
         </section>
       </main>
+
+      {tripPendingDelete && (
+        <ConfirmDialog
+          title={`Delete "${tripPendingDelete.name}"?`}
+          message="This can't be undone."
+          confirmLabel="Delete"
+          danger
+          onCancel={() => setTripPendingDelete(null)}
+          onConfirm={confirmDeleteTrip}
+        />
+      )}
     </div>
   )
 }

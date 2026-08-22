@@ -48,26 +48,37 @@ async function searchNominatim(query: string): Promise<City[]> {
   }
 }
 
+// A raw "count of local matches" check isn't a good enough signal to decide
+// whether to bother with the live fallback: searching "Agra" against our 90k
+// rows matches 50+ unrelated names that merely *contain* "agra" (Sagrada
+// Familia, Wagrain, Bagratashen...) padding the count well past any threshold,
+// even though none of them is the city the user is actually looking for and
+// Agra itself isn't in the table at all. So: always run both, and rank by
+// whether the name actually starts with what was typed.
 export async function searchCities(query: string): Promise<City[]> {
-  const { data: localResults } = await supabase
-    .from('cities')
-    .select('*')
-    .ilike('name', `%${query}%`)
-    .order('popularity', { ascending: false })
-    .limit(6)
+  const [localResults, remote] = await Promise.all([
+    supabase.from('cities').select('*').ilike('name', `%${query}%`).order('popularity', { ascending: false }).limit(10),
+    searchNominatim(query),
+  ])
 
-  const local = localResults ?? []
-  if (local.length >= 4) return local
-
-  const remote = await searchNominatim(query)
-  const seen = new Set(local.map((c) => c.name.toLowerCase()))
-  const merged = [...local]
-  for (const city of remote) {
+  const local = localResults.data ?? []
+  const seen = new Set<string>()
+  const merged: City[] = []
+  for (const city of [...local, ...remote]) {
     const key = city.name.toLowerCase()
     if (!seen.has(key)) {
       seen.add(key)
       merged.push(city)
     }
   }
+
+  const q = query.trim().toLowerCase()
+  merged.sort((a, b) => {
+    const aStarts = a.name.toLowerCase().startsWith(q)
+    const bStarts = b.name.toLowerCase().startsWith(q)
+    if (aStarts !== bStarts) return aStarts ? -1 : 1
+    return b.popularity - a.popularity
+  })
+
   return merged.slice(0, 6)
 }

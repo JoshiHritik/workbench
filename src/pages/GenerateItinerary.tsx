@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useCurrency } from '../context/CurrencyContext'
-import { fetchWikiInfo, type WikiInfo } from '../lib/wiki'
+import { fetchWikiInfo, extractPlaceQuery, isSafeMatch, type WikiInfo } from '../lib/wiki'
 import { geocode, type GeocodeResult } from '../lib/geocode'
 import { MiniMap } from '../components/MiniMap'
 import type { Trip } from '../lib/types'
@@ -75,23 +75,31 @@ function formatTime(time: string) {
   return `${hours}:${minutes} ${period}`
 }
 
-function useWikiInfo(query: string | null) {
+// Activity names from the AI are instructions ("Visit Red Fort", "Lunch at a
+// local eatery"), not search queries — searching Wikipedia for the raw
+// phrase is how "Visit Red Fort" can end up matching a news article instead
+// of the landmark. This cleans the name first, skips the lookup entirely for
+// anything too generic to search for, and rejects any match that isn't
+// actually a safe, relevant place (see isSafeMatch in lib/wiki).
+function useActivityWikiInfo(activityName: string | undefined, city: string) {
+  const placeQuery = activityName ? extractPlaceQuery(activityName) : null
   const [info, setInfo] = useState<WikiInfo | null | undefined>(undefined)
 
   useEffect(() => {
-    if (!query) {
+    if (!placeQuery) {
       setInfo(null)
       return
     }
     let cancelled = false
     setInfo(undefined)
-    fetchWikiInfo(query).then((res) => {
-      if (!cancelled) setInfo(res)
+    fetchWikiInfo(`${placeQuery}, ${city}`).then((res) => {
+      if (cancelled) return
+      setInfo(res && isSafeMatch(res) ? res : null)
     })
     return () => {
       cancelled = true
     }
-  }, [query])
+  }, [placeQuery, city])
 
   return info
 }
@@ -272,7 +280,12 @@ export default function GenerateItinerary() {
           />
         )}
         {view.level === 'activity' && (
-          <ActivityView itinerary={itinerary} dayIndex={view.day} activityIndex={view.activity} />
+          <ActivityView
+            itinerary={itinerary}
+            dayIndex={view.day}
+            activityIndex={view.activity}
+            onOpenActivity={(activity) => setView({ level: 'activity', day: view.day, activity })}
+          />
         )}
       </div>
     </div>
@@ -344,8 +357,7 @@ function OverviewView({
   const days = itinerary.days
   const totalActivities = days.reduce((sum, d) => sum + d.activities.length, 0)
   const uniqueCities = Array.from(new Set(days.map((d) => d.city).filter(Boolean)))
-  const firstActivityQuery = days[0]?.activities[0] ? `${days[0].activities[0].name}, ${days[0].city}` : place
-  const heroInfo = useWikiInfo(firstActivityQuery)
+  const heroInfo = useActivityWikiInfo(days[0]?.activities[0]?.name, days[0]?.city ?? place)
   const heroImage = heroInfo?.image ?? (days[0] ? imageForCategory(days[0].activities[0]?.category ?? '') : DEFAULT_DAY_IMAGE)
 
   const cityPins = useCityPins(uniqueCities)
@@ -416,8 +428,7 @@ function useCityPins(cities: string[]) {
 
 function DayCard({ day, onClick }: { day: ItineraryDay; onClick: () => void }) {
   const firstActivity = day.activities[0]
-  const query = firstActivity ? `${firstActivity.name}, ${day.city}` : null
-  const info = useWikiInfo(query)
+  const info = useActivityWikiInfo(firstActivity?.name, day.city)
   const image = info === undefined ? null : (info?.image ?? imageForCategory(firstActivity?.category ?? ''))
 
   return (
@@ -484,7 +495,7 @@ function ActivityCard({
   city: string
   onClick: () => void
 }) {
-  const info = useWikiInfo(`${activity.name}, ${city}`)
+  const info = useActivityWikiInfo(activity.name, city)
   const image = info === undefined ? null : (info?.image ?? imageForCategory(activity.category))
   const { format: formatCurrency } = useCurrency()
 
@@ -520,15 +531,18 @@ function ActivityView({
   itinerary,
   dayIndex,
   activityIndex,
+  onOpenActivity,
 }: {
   itinerary: ItineraryResult
   dayIndex: number
   activityIndex: number
+  onOpenActivity: (activityIndex: number) => void
 }) {
   const day = itinerary.days[dayIndex]
   const activity = day?.activities[activityIndex]
-  const info = useWikiInfo(activity ? `${activity.name}, ${day.city}` : null)
-  const geo = useGeocode(activity ? `${activity.name}, ${day.city}` : null)
+  const info = useActivityWikiInfo(activity?.name, day?.city ?? '')
+  const placeQuery = activity?.name ? extractPlaceQuery(activity.name) : null
+  const geo = useGeocode(placeQuery && day ? `${placeQuery}, ${day.city}` : null)
 
   const { format: formatCurrency } = useCurrency()
   if (!day || !activity) return null
@@ -602,6 +616,19 @@ function ActivityView({
           </div>
         </div>
       </div>
+
+      {day.activities.length > 1 && (
+        <div className="mt-10">
+          <h2 className="text-sm font-semibold text-slate-900">Similar experiences that day</h2>
+          <div className="mt-3 space-y-3">
+            {day.activities.map((other, i) =>
+              i === activityIndex ? null : (
+                <ActivityCard key={i} activity={other} city={day.city} onClick={() => onOpenActivity(i)} />
+              ),
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

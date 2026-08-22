@@ -5,6 +5,9 @@ import { useAuth } from '../context/AuthContext'
 import { AppHeader } from '../components/AppHeader'
 import { DateRangePicker } from '../components/DateRangePicker'
 import { TripVibeSelect } from '../components/TripVibeSelect'
+import { ConfirmDialog } from '../components/ConfirmDialog'
+import { useCurrency } from '../context/CurrencyContext'
+import { fetchWikiInfo } from '../lib/wiki'
 
 const MAX_COVER_PHOTO_BYTES = 5 * 1024 * 1024
 
@@ -29,10 +32,8 @@ export default function CreateTrip() {
   const navigate = useNavigate()
   const { session } = useAuth()
   const [searchParams] = useSearchParams()
-  const [name, setName] = useState(() => {
-    const destination = searchParams.get('destination')
-    return destination ? `${destination} Trip` : ''
-  })
+  const destinationParam = searchParams.get('destination')
+  const [name, setName] = useState(() => (destinationParam ? `${destinationParam} Trip` : ''))
   const [startDate, setStartDate] = useState(() => searchParams.get('start') ?? '')
   const [endDate, setEndDate] = useState(() => searchParams.get('end') ?? '')
   const [description, setDescription] = useState('')
@@ -43,7 +44,9 @@ export default function CreateTrip() {
   const [isPublic, setIsPublic] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState<SaveStatus | null>(null)
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { symbol, toInr } = useCurrency()
 
   useEffect(() => {
     if (!coverPhoto) {
@@ -90,7 +93,10 @@ export default function CreateTrip() {
   }
 
   function handleClose() {
-    if (isDirty && !window.confirm('Discard this trip? Your changes will not be saved.')) return
+    if (isDirty) {
+      setShowDiscardConfirm(true)
+      return
+    }
     navigate('/dashboard')
   }
 
@@ -116,7 +122,12 @@ export default function CreateTrip() {
       }
       coverPhotoUrl = supabase.storage.from('trip-covers').getPublicUrl(path).data.publicUrl
     } else {
-      coverPhotoUrl = VIBE_FALLBACK_IMAGES[tripVibe] ?? DEFAULT_FALLBACK_IMAGE
+      // Prefer a real photo of the actual destination over a generic
+      // vibe-themed stock photo, so "Delhi Trip" doesn't end up showing the
+      // Colosseum just because it happens to share a vibe with Rome.
+      const destination = destinationParam || name.replace(/\s+trip$/i, '').trim()
+      const wiki = destination ? await fetchWikiInfo(destination) : null
+      coverPhotoUrl = wiki?.image ?? VIBE_FALLBACK_IMAGES[tripVibe] ?? DEFAULT_FALLBACK_IMAGE
     }
 
     const { data, error: insertError } = await supabase
@@ -127,7 +138,7 @@ export default function CreateTrip() {
         start_date: startDate,
         end_date: endDate,
         description: description.trim() || null,
-        budget: budget ? Number(budget) : null,
+        budget: budget ? Math.round(toInr(Number(budget))) : null,
         trip_vibe: tripVibe || null,
         cover_photo_url: coverPhotoUrl,
         is_public: isPublic,
@@ -221,7 +232,7 @@ export default function CreateTrip() {
               </label>
               <div className="relative">
                 <span className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-sm text-slate-400">
-                  ₹
+                  {symbol}
                 </span>
                 <input
                   id="budget"
@@ -330,6 +341,20 @@ export default function CreateTrip() {
           </div>
         </form>
       </main>
+
+      {showDiscardConfirm && (
+        <ConfirmDialog
+          title="Discard this trip?"
+          message="Your changes will not be saved."
+          confirmLabel="Discard"
+          danger
+          onCancel={() => setShowDiscardConfirm(false)}
+          onConfirm={() => {
+            setShowDiscardConfirm(false)
+            navigate('/dashboard')
+          }}
+        />
+      )}
     </div>
   )
 }
