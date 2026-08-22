@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
+import { AuthLayout } from '../components/AuthLayout'
 
 export default function Signup() {
   const navigate = useNavigate()
@@ -55,8 +56,8 @@ export default function Signup() {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
+    <AuthLayout>
+      <div className="rounded-xl border border-slate-200 bg-white/90 p-8 shadow-lg backdrop-blur-sm">
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-semibold text-slate-900">GlobeTrotter</h1>
           <p className="mt-1 text-sm text-slate-500">Create an account to start planning</p>
@@ -150,6 +151,6 @@ export default function Signup() {
           </Link>
         </p>
       </div>
-    </div>
+    </AuthLayout>
   )
 }
