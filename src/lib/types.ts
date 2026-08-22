@@ -13,6 +13,7 @@ export interface Trip {
 export interface City {
   id: string
   name: string
+  state: string | null
   country: string
   cost_index: number | null
   popularity: number

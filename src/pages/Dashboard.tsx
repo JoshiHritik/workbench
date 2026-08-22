@@ -16,11 +16,30 @@ function formatDateRange(start: string | null, end: string | null) {
   return `${new Date(start).toLocaleDateString(undefined, opts)} – ${new Date(end).toLocaleDateString(undefined, opts)}`
 }
 
+function CityThumbnail({ city, className }: { city: City; className: string }) {
+  if (city.image_url) {
+    return <img src={city.image_url} alt={city.name} className={`${className} object-cover`} />
+  }
+  return (
+    <div className={`${className} flex items-center justify-center bg-slate-200 text-slate-400`}>
+      <svg className="h-1/3 w-1/3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6" />
+      </svg>
+    </div>
+  )
+}
+
 function CityCard({ city }: { city: City }) {
   return (
-    <div className="w-36 flex-shrink-0 rounded-xl border border-slate-200 bg-white p-4 text-center shadow-sm">
-      <p className="font-medium text-slate-900">{city.name}</p>
-      <p className="mt-1 text-xs text-slate-500">{city.country}</p>
+    <div className="w-36 flex-shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <CityThumbnail city={city} className="h-24 w-full" />
+      <div className="p-3 text-center">
+        <p className="font-medium text-slate-900">{city.name}</p>
+        <p className="mt-0.5 text-xs text-slate-500">
+          {city.state ? `${city.state}, ` : ''}
+          {city.country}
+        </p>
+      </div>
     </div>
   )
 }
@@ -32,6 +51,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
 
   const [search, setSearch] = useState('')
+  const [searchFocused, setSearchFocused] = useState(false)
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [persons, setPersons] = useState('')
@@ -64,6 +84,7 @@ export default function Dashboard() {
 
   const indiaCities = cities.filter((c) => c.country === 'India' && matchesSearch(c))
   const internationalCities = cities.filter((c) => c.country !== 'India' && matchesSearch(c))
+  const suggestions = query ? cities.filter(matchesSearch).slice(0, 6) : []
 
   return (
     <div className="min-h-svh bg-slate-50">
@@ -77,15 +98,40 @@ export default function Dashboard() {
 
         <div className="flex flex-1 items-center">
           <div className="mx-auto w-full max-w-5xl px-4 sm:px-6">
-            <div className="rounded-2xl border border-slate-200 bg-white/95 p-8 shadow-lg backdrop-blur-sm">
+            <div className="rounded-2xl border border-slate-200 bg-white/95 p-10 shadow-lg backdrop-blur-sm">
               <div className="flex flex-col gap-3 sm:flex-row">
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search destinations…"
-                  className="w-full flex-1 rounded-[50px] border border-slate-300 px-5 py-3.5 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
-                />
+                <div className="relative w-full flex-1">
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    onFocus={() => setSearchFocused(true)}
+                    onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
+                    placeholder="Search destinations…"
+                    className="w-full rounded-[50px] border border-slate-300 px-5 py-3.5 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+                  />
+                  {searchFocused && suggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
+                      {suggestions.map((city) => (
+                        <button
+                          key={city.id}
+                          type="button"
+                          onMouseDown={() => setSearch(city.name)}
+                          className="flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-slate-50"
+                        >
+                          <CityThumbnail city={city} className="h-12 w-12 flex-shrink-0 rounded-lg" />
+                          <div>
+                            <p className="font-medium text-slate-900">{city.name}</p>
+                            <p className="text-xs text-slate-500">
+                              {city.state ? `${city.state}, ` : ''}
+                              {city.country}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <Link
                   to="/create-trip"
                   className="flex flex-shrink-0 items-center justify-center rounded-[50px] bg-slate-900 px-6 py-3.5 text-sm font-medium text-white transition hover:bg-slate-700"
@@ -94,7 +140,7 @@ export default function Dashboard() {
                 </Link>
               </div>
 
-              <div className="mt-4 flex flex-wrap items-center gap-3">
+              <div className="mt-6 flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2 rounded-[50px] border border-slate-300 px-2">
                   <input
                     aria-label="From date"
