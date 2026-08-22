@@ -89,6 +89,13 @@ function Icon({ name, className = 'h-4 w-4' }: { name: IconName; className?: str
   )
 }
 
+const LOADING_COLLAGE = [
+  CATEGORY_IMAGES.sightseeing,
+  CATEGORY_IMAGES.culture,
+  CATEGORY_IMAGES.food,
+  CATEGORY_IMAGES.adventure,
+]
+
 function imageForCategory(category: string) {
   const key = category.trim().toLowerCase()
   return CATEGORY_IMAGES[key] ?? CATEGORY_IMAGES[CATEGORY_ALIASES[key]] ?? DEFAULT_DAY_IMAGE
