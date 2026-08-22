@@ -45,7 +45,7 @@ export default function Login() {
 
   return (
     <AuthLayout>
-      <div className="rounded-xl border border-slate-200 bg-white/90 p-8 shadow-lg backdrop-blur-sm">
+      <div>
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-semibold text-slate-900">GlobeTrotter</h1>
           <p className="mt-1 text-sm text-slate-500">Log in to plan your next trip</p>
